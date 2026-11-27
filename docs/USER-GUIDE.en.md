@@ -49,7 +49,7 @@ The composer toolbar has three buttons beside **Full access**:
 - **Next**: go forward one page.
 - **Eye**: show / hide the reader.
 
-When no book is open, all three look the same but are disabled. The eye icon does not change shape when the reader is hidden.
+When no book is open, the three buttons are hidden; they appear after you open a book from the library. While a book is open, their appearance stays the same in reading, hidden and input modes.
 
 The right side of the reading line shows the progress (for example `12.5%`) and a search button.
 

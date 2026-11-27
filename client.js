@@ -3124,36 +3124,7 @@
         event.stopPropagation();
       }
 
-      if (!state.ready) return null;
-      if (!active) {
-        return h(Fragment, null,
-          h('style', null, TOOLBAR_CSS),
-          h('div', { ref: rootRef, className: 'sr-toolbar', 'data-fish-reader-toolbar': '' },
-            h('button', {
-              type: 'button',
-              className: 'sr-toolbar-btn',
-              title: t('reader.prev'),
-              'aria-label': t('reader.prev'),
-              disabled: true,
-              onMouseDown: keepEditor,
-            }, h(ChevronLeft)),
-            h('button', {
-              type: 'button',
-              className: 'sr-toolbar-btn',
-              title: t('reader.next'),
-              'aria-label': t('reader.next'),
-              disabled: true,
-              onMouseDown: keepEditor,
-            }, h(ChevronRight)),
-            h('button', {
-              type: 'button',
-              className: 'sr-toolbar-btn',
-              title: t('reader.boss'),
-              'aria-label': t('reader.boss'),
-              disabled: true,
-              onMouseDown: keepEditor,
-            }, h(EyeIcon))));
-      }
+      if (!state.ready || !active) return null;
 
       return h(Fragment, null,
         h('style', null, TOOLBAR_CSS),

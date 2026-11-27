@@ -151,6 +151,15 @@ DSH Fish Reader 是一个本地 TXT / EPUB 阅读器。它把小说正文放进 
 - EPUB 目前只提取正文，不支持 DRM、图片、CSS 排版和 EPUB 目录跳转；
 - 超大文件受浏览器内存限制。
 
+### 书和进度存在哪里
+
+存在 DSH Desktop 渲染进程的浏览器存储里，不在插件目录，也不是普通文件：
+
+- 导入的正文副本：`%APPDATA%\@deepseek-ai\dsh-desktop\IndexedDB\`（数据库 `dsh-fish-reader`，正文溢出时在旁边的 `*.indexeddb.blob`）；
+- 书库信息、阅读进度、设置、最近打开的书：`%APPDATA%\@deepseek-ai\dsh-desktop\Local Storage\leveldb\`。
+
+这两个都是 leveldb 二进制目录，DSH 运行时被锁定。要备份就先完全退出 DSH，再复制 `IndexedDB` 和 `Local Storage` 两个目录；恢复时先退出 DSH 再放回。卸载插件不会删除这些数据，清理站点数据或删除用户数据目录才会丢；浏览器打开 Web GUI 是另一份存储，看不到桌面里的书。
+
 ### 搜索很慢
 
 正则搜索会在全书范围内查找匹配。非常复杂的正则表达式可能让搜索变慢，建议使用更具体的模式。

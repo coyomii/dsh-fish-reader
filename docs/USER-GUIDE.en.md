@@ -146,6 +146,15 @@ The host replaces the composer tool row with its activity view. The buttons retu
 - EPUB import extracts text only; DRM, images, CSS layout and EPUB navigation are not supported.
 - Very large books are limited by browser memory.
 
+### Where are the books and progress stored
+
+In the DSH Desktop renderer's own browser storage, not in the plugin folder and not as regular files:
+
+- imported text copies: `%APPDATA%\@deepseek-ai\dsh-desktop\IndexedDB\` (database `dsh-fish-reader`, with large values in the sibling `*.indexeddb.blob`);
+- library, progress, settings and last-opened book: `%APPDATA%\@deepseek-ai\dsh-desktop\Local Storage\leveldb\`.
+
+On macOS use `~/Library/Application Support/@deepseek-ai/dsh-desktop/`, on Linux `~/.config/@deepseek-ai/dsh-desktop/`. Both are locked leveldb folders while DSH runs: quit DSH first, then copy the two folders to back up, and quit DSH before restoring. Uninstalling the plugin keeps the data; clearing site data or deleting the app data folder removes it. The Web GUI opened in a browser is a separate origin with its own library.
+
 ### Regex search is slow
 
 Regex search scans the whole book. Very complex expressions can take a long time; prefer a more specific pattern.

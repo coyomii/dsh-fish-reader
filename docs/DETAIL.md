@@ -122,6 +122,11 @@
 - localStorage：设置、书库元数据、每本书 `{cursor, history, percent, updatedAt}`、最近书 id。
 - 删除只删 IndexedDB 副本、元数据和进度；原始文件从未被读取回写或移动。
 - 没有 Host 服务、工具、网络请求或会话写入。
+- 落盘位置（DSH Desktop，Electron userData 下的渲染进程存储；origin 为 `dsh-app://app`）：
+  - Windows：`%APPDATA%\@deepseek-ai\dsh-desktop\IndexedDB\`（`dsh-app_app_0.indexeddb.leveldb` 存 `dsh-fish-reader` 数据库，整段正文溢出到同目录 `dsh-app_app_0.indexeddb.blob`）与 `%APPDATA%\@deepseek-ai\dsh-desktop\Local Storage\leveldb\`（`dsh-fish-reader/library`、`/progress`、`/settings`、`/last`）。
+  - macOS：`~/Library/Application Support/@deepseek-ai/dsh-desktop/IndexedDB/`、`.../Local Storage/leveldb/`；Linux：`~/.config/@deepseek-ai/dsh-desktop/` 下同名子目录。
+  - 两者都是 leveldb 二进制，运行期间被锁定，不能直接阅读或手工编辑；备份需先退出 DSH 再整目录复制。
+  - 卸载插件不会删除这些数据；清理站点数据或删除用户数据目录才会丢失。浏览器版 Web GUI 属于不同 origin，与桌面窗口各存一份、互不同步。
 
 ## 3. 桌面端实测（DSH Desktop，旧版独立行阶段）
 

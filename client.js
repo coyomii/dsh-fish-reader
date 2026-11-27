@@ -2742,6 +2742,22 @@
       text-overflow: ellipsis;
       white-space: nowrap;
     }
+    .sr-book-title-input {
+      box-sizing: border-box;
+      flex: 1 1 auto;
+      min-width: 0;
+      height: 22px;
+      padding: 0 6px;
+      border: 1px solid var(--dsw-alias-brand-primary);
+      border-radius: 4px;
+      background: var(--dsw-alias-bg-layer-1);
+      color: var(--dsw-alias-label-primary);
+      font: inherit;
+      font-size: 13px;
+      font-weight: 600;
+      line-height: 19px;
+      outline: none;
+    }
     .sr-chip {
       flex: none;
       padding: 0 6px;
@@ -3409,6 +3425,8 @@
       var nameState = React.useState(book.alias);
       var name = nameState[0];
       var setName = nameState[1];
+      var inputRef = React.useRef(null);
+      var skipBlurRef = React.useRef(false);
       var progress = props.progress;
       var percentValue = progress && Number.isFinite(progress.percent) ? Math.max(0, Math.min(100, progress.percent)) : 0;
       var metaLine = [
@@ -3420,13 +3438,35 @@
 
       function startRename() {
         setName(book.alias);
+        skipBlurRef.current = false;
         setRenaming(true);
       }
 
       function saveRename() {
         var result = store.renameBook(book.id, name);
-        if (result.ok) setRenaming(false);
+        if (result.ok) {
+          setRenaming(false);
+        } else {
+          setName(book.alias);
+          setRenaming(false);
+        }
       }
+
+      function cancelRename() {
+        skipBlurRef.current = true;
+        setName(book.alias);
+        setRenaming(false);
+      }
+
+      function keepRenameFocus(event) {
+        event.preventDefault();
+      }
+
+      React.useEffect(function () {
+        if (!renaming || !inputRef.current) return;
+        inputRef.current.focus();
+        inputRef.current.select();
+      }, [renaming]);
 
       return h('li', { className: 'sr-book', 'data-active': active ? '' : undefined, 'data-selecting': selecting ? '' : undefined },
         selecting ? h('label', { className: 'sr-book-check' },
@@ -3438,39 +3478,45 @@
           })) : null,
         h('div', { className: 'sr-book-main' },
           h('div', { className: 'sr-book-title' },
-            h('span', { title: book.alias }, book.alias),
-            active ? h('span', { className: 'sr-chip', 'data-tone': 'brand' }, t('library.active')) : null,
-            book.uncertain ? h('span', { className: 'sr-chip' }, '编码?') : null),
-          h('div', { className: 'sr-book-meta' }, metaLine),
-          h('div', { className: 'sr-book-progress' },
-            h('div', { className: 'sr-progress', role: 'progressbar', 'aria-label': t('library.progressLabel'), 'aria-valuemin': 0, 'aria-valuemax': 100, 'aria-valuenow': percentValue },
-              h('span', { style: { width: percentValue + '%' } })),
-            h('span', null, progress ? t('library.lastRead', { percent: percentValue }) : t('library.neverRead'))),
-          renaming ? h('div', { className: 'sr-book-edit' },
-            h('input', {
-              className: 'sr-text-input',
+            renaming ? h('input', {
+              ref: inputRef,
+              className: 'sr-book-title-input',
               type: 'text',
               value: name,
               maxLength: 80,
               'aria-label': t('library.rename'),
               onChange: function (event) { setName(event.target.value); },
               onKeyDown: function (event) {
+                if (event.isComposing || event.nativeEvent && event.nativeEvent.isComposing || event.keyCode === 229) return;
                 if (event.key === 'Enter') { event.preventDefault(); saveRename(); }
-                if (event.key === 'Escape') { event.preventDefault(); setRenaming(false); }
+                if (event.key === 'Escape') { event.preventDefault(); cancelRename(); }
               },
-            }),
-            h('button', { type: 'button', className: 'sr-ghost-btn', onClick: saveRename }, t('library.save')),
-            h('button', { type: 'button', className: 'sr-ghost-btn', onClick: function () { setRenaming(false); } }, t('library.cancel'))) : null),
+              onBlur: function () {
+                if (skipBlurRef.current) { skipBlurRef.current = false; return; }
+                saveRename();
+              },
+            }) : h('span', { title: book.alias }, book.alias),
+            !renaming && active ? h('span', { className: 'sr-chip', 'data-tone': 'brand' }, t('library.active')) : null,
+            !renaming && book.uncertain ? h('span', { className: 'sr-chip' }, '编码?') : null),
+          h('div', { className: 'sr-book-meta' }, metaLine),
+          h('div', { className: 'sr-book-progress' },
+            h('div', { className: 'sr-progress', role: 'progressbar', 'aria-label': t('library.progressLabel'), 'aria-valuemin': 0, 'aria-valuemax': 100, 'aria-valuenow': percentValue },
+              h('span', { style: { width: percentValue + '%' } })),
+            h('span', null, progress ? t('library.lastRead', { percent: percentValue }) : t('library.neverRead')))),
         selecting ? null : h('div', { className: 'sr-book-actions' },
-          h(Fragment, null,
-            h('button', {
-              type: 'button',
-              className: 'sr-ghost-btn',
-              onClick: function () { void store.openBook(book.id); },
-            }, progress ? t('library.resume') : t('library.openBook')),
-            active ? h('button', { type: 'button', className: 'sr-ghost-btn', onClick: function () { store.closeBook(); } }, t('library.closeBook')) : null,
-            h('button', { type: 'button', className: 'sr-ghost-btn', onClick: startRename }, t('library.rename')),
-            h('button', { type: 'button', className: 'sr-ghost-btn', 'data-danger': '', onClick: function () { if (props.onRequestDelete) props.onRequestDelete(book); } }, t('library.delete')))));
+          renaming
+            ? h(Fragment, null,
+              h('button', { type: 'button', className: 'sr-ghost-btn', onMouseDown: keepRenameFocus, onClick: saveRename }, t('library.save')),
+              h('button', { type: 'button', className: 'sr-ghost-btn', onMouseDown: keepRenameFocus, onClick: cancelRename }, t('library.cancel')))
+            : h(Fragment, null,
+              h('button', {
+                type: 'button',
+                className: 'sr-ghost-btn',
+                onClick: function () { void store.openBook(book.id); },
+              }, progress ? t('library.resume') : t('library.openBook')),
+              active ? h('button', { type: 'button', className: 'sr-ghost-btn', onClick: function () { store.closeBook(); } }, t('library.closeBook')) : null,
+              h('button', { type: 'button', className: 'sr-ghost-btn', onClick: startRename }, t('library.rename')),
+              h('button', { type: 'button', className: 'sr-ghost-btn', 'data-danger': '', onClick: function () { if (props.onRequestDelete) props.onRequestDelete(book); } }, t('library.delete')))));
     }
 
     function ConfirmDialog(props) {

@@ -3126,12 +3126,36 @@
 
       if (!state.ready || !active) return null;
 
+      var toolbarStyle = {
+        display: 'flex',
+        alignItems: 'center',
+        alignSelf: 'center',
+        gap: '2px',
+        height: '26px',
+        minWidth: 0,
+        margin: 0,
+        padding: 0,
+      };
+      var toolbarButtonStyle = {
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        flex: 'none',
+        width: '24px',
+        height: '24px',
+        boxSizing: 'border-box',
+        margin: 0,
+        padding: 0,
+        lineHeight: 1,
+      };
+
       return h(Fragment, null,
         h('style', null, TOOLBAR_CSS),
-        h('div', { ref: rootRef, className: 'sr-toolbar', 'data-fish-reader-toolbar': '' },
+        h('div', { ref: rootRef, className: 'sr-toolbar', 'data-fish-reader-toolbar': '', style: toolbarStyle },
           h('button', {
             type: 'button',
             className: 'sr-toolbar-btn',
+            style: toolbarButtonStyle,
             title: t('reader.prev'),
             'aria-label': t('reader.prev'),
             disabled: !page || page.atStart || state.inputMode,
@@ -3145,6 +3169,7 @@
           h('button', {
             type: 'button',
             className: 'sr-toolbar-btn',
+            style: toolbarButtonStyle,
             title: t('reader.next'),
             'aria-label': t('reader.next'),
             disabled: !page || page.atEnd || state.inputMode,
@@ -3158,6 +3183,7 @@
           h('button', {
             type: 'button',
             className: 'sr-toolbar-btn',
+            style: toolbarButtonStyle,
             title: t('reader.boss'),
             'aria-label': t('reader.boss'),
             onMouseDown: keepEditor,

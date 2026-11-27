@@ -4,7 +4,7 @@
 
 - DeepSeek Harness `0.2.2-rc.5`（Desktop，Windows）
 - Profile：`desktop`
-- 插件包：`dsh-fish-reader@1.2.0`（显示名 **DSH Fish Reader**；包名、slot id、存储键全部改为 fish-reader，旧 shadow-reader 数据首次启动迁移）
+- 插件包：`dsh-fish-reader@1.2.2`（显示名 **DSH Fish Reader**；包名、slot id、存储键统一为 fish-reader）
 - 安装结果：`application: applied`
 
 ## 1. 阅读区挂载方式（输入框占位覆盖）
@@ -111,7 +111,6 @@
 
 - IndexedDB `dsh-fish-reader` / `books`：每本书 `{ id, alias, sourceName, encoding, charCount, bytes, importedAt, text }`。
 - localStorage：设置、书库元数据、每本书 `{cursor, history, percent, updatedAt}`、最近书 id。
-- 首次启动会从旧 `dsh-shadow-reader` / `shadow-reader` 键和 IndexedDB 复制一次数据；新库已有数据时不会覆盖。旧数据保留作回退，不再参与日常读写。
 - 删除只删 IndexedDB 副本、元数据和进度；原始文件从未被读取回写或移动。
 - 没有 Host 服务、工具、网络请求或会话写入。
 

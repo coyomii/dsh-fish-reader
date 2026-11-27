@@ -31,7 +31,8 @@ The text appears in the composer placeholder, with the page controls beside **Fu
 ## Batch management
 
 - **Batch import**: click **Batch import TXT / EPUB** to select multiple files, or drag multiple TXT/EPUB files into the library.
-- **Batch delete**: click **Select**, check several books, then click **Delete selected** and confirm.
+- **Batch delete**: click **Select**, check several books, then click **Delete selected** and confirm in the dialog.
+- Single-book deletion uses the same confirmation dialog.
 - Deleting removes only the imported copies and reading progress; **original files are untouched**.
 - **Select all** selects every book in the library.
 

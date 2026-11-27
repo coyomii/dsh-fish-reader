@@ -958,6 +958,11 @@
     'library.batchConfirmNote': 'Delete {count} selected book(s)? Only imported copies and progress are removed.',
     'library.batchConfirm': 'Delete',
     'library.batchDeleteSomeFailed': 'Could not remove {count} book(s) from local storage.',
+    'library.deleteTitle': 'Delete book?',
+    'library.deleteMessage': 'Delete “{alias}” from the library? Only the imported copy and progress are removed. Your original file is untouched.',
+    'library.batchDeleteTitle': 'Delete selected books?',
+    'library.batchDeleteMessage': 'Delete {count} selected book(s)? Only imported copies and progress are removed.',
+    'library.deleting': 'Deleting…',
     'notice.deletedMany': 'Deleted {count} book(s).',
     'library.cancel': 'Cancel',
     'library.save': 'Save',
@@ -1064,6 +1069,11 @@
     'library.batchConfirmNote': '确定删除选中的 {count} 本书？只删除导入副本和进度。',
     'library.batchConfirm': '删除',
     'library.batchDeleteSomeFailed': '{count} 本书删除失败。',
+    'library.deleteTitle': '删除书籍？',
+    'library.deleteMessage': '确定从书库删除《{alias}》？只删除导入副本和进度，原始文件保持不动。',
+    'library.batchDeleteTitle': '删除选中的书籍？',
+    'library.batchDeleteMessage': '确定删除选中的 {count} 本书？只删除导入副本和进度。',
+    'library.deleting': '正在删除…',
     'notice.deletedMany': '已删除 {count} 本书。',
     'library.cancel': '取消',
     'library.save': '保存',
@@ -2566,6 +2576,47 @@
     }
     .sr-primary-btn:hover { filter: brightness(1.06); }
     .sr-primary-btn:disabled { opacity: .5; cursor: default; }
+    .sr-primary-btn[data-danger] { border-color: var(--dsw-alias-state-error-primary); background: var(--dsw-alias-state-error-primary); }
+    .sr-confirm-layer {
+      position: fixed;
+      inset: 0;
+      z-index: 90;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      box-sizing: border-box;
+      background: rgba(0, 0, 0, .38);
+    }
+    .sr-confirm-card {
+      box-sizing: border-box;
+      width: min(420px, calc(100vw - 32px));
+      padding: 18px;
+      border: 1px solid var(--dsw-alias-border-l1);
+      border-radius: 12px;
+      background: var(--dsw-alias-bg-overlay);
+      color: var(--dsw-alias-label-primary);
+      box-shadow: 0 18px 60px rgba(0, 0, 0, .38);
+    }
+    .sr-confirm-title {
+      margin: 0 0 8px;
+      font-size: 15px;
+      font-weight: 600;
+      line-height: 22px;
+    }
+    .sr-confirm-message {
+      margin: 0;
+      color: var(--dsw-alias-label-secondary);
+      font-size: 12px;
+      line-height: 1.6;
+      white-space: pre-wrap;
+    }
+    .sr-confirm-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      margin-top: 16px;
+    }
     .sr-ghost-btn {
       height: 26px;
       padding: 0 9px;
@@ -3308,9 +3359,6 @@
       var nameState = React.useState(book.alias);
       var name = nameState[0];
       var setName = nameState[1];
-      var confirmState = React.useState(false);
-      var confirming = confirmState[0];
-      var setConfirming = confirmState[1];
       var progress = props.progress;
       var percentValue = progress && Number.isFinite(progress.percent) ? Math.max(0, Math.min(100, progress.percent)) : 0;
       var metaLine = [
@@ -3323,7 +3371,6 @@
       function startRename() {
         setName(book.alias);
         setRenaming(true);
-        setConfirming(false);
       }
 
       function saveRename() {
@@ -3363,11 +3410,7 @@
               },
             }),
             h('button', { type: 'button', className: 'sr-ghost-btn', onClick: saveRename }, t('library.save')),
-            h('button', { type: 'button', className: 'sr-ghost-btn', onClick: function () { setRenaming(false); } }, t('library.cancel'))) : null,
-          confirming ? h('div', { className: 'sr-book-edit' },
-            h('span', { className: 'sr-field-hint' }, t('library.deleteNote')),
-            h('button', { type: 'button', className: 'sr-ghost-btn', 'data-danger': '', onClick: function () { void store.deleteBook(book.id); setConfirming(false); } }, t('library.confirm')),
-            h('button', { type: 'button', className: 'sr-ghost-btn', onClick: function () { setConfirming(false); } }, t('library.cancel'))) : null),
+            h('button', { type: 'button', className: 'sr-ghost-btn', onClick: function () { setRenaming(false); } }, t('library.cancel'))) : null),
         selecting ? null : h('div', { className: 'sr-book-actions' },
           h(Fragment, null,
             h('button', {
@@ -3377,7 +3420,66 @@
             }, progress ? t('library.resume') : t('library.openBook')),
             active ? h('button', { type: 'button', className: 'sr-ghost-btn', onClick: function () { store.closeBook(); } }, t('library.closeBook')) : null,
             h('button', { type: 'button', className: 'sr-ghost-btn', onClick: startRename }, t('library.rename')),
-            h('button', { type: 'button', className: 'sr-ghost-btn', 'data-danger': '', onClick: function () { setConfirming(true); setRenaming(false); } }, t('library.delete')))));
+            h('button', { type: 'button', className: 'sr-ghost-btn', 'data-danger': '', onClick: function () { if (props.onRequestDelete) props.onRequestDelete(book); } }, t('library.delete')))));
+    }
+
+    function ConfirmDialog(props) {
+      var open = props.open === true;
+      var busy = props.busy === true;
+      var cancelRef = React.useRef(null);
+
+      React.useEffect(function () {
+        if (!open) return undefined;
+        var timer = window.setTimeout(function () {
+          if (cancelRef.current) cancelRef.current.focus();
+        }, 0);
+        function onKey(event) {
+          if (event.key !== 'Escape') return;
+          event.preventDefault();
+          event.stopPropagation();
+          if (!busy && props.onCancel) props.onCancel();
+        }
+        window.addEventListener('keydown', onKey, true);
+        return function () {
+          window.clearTimeout(timer);
+          window.removeEventListener('keydown', onKey, true);
+        };
+      }, [open, busy, props.onCancel]);
+
+      if (!open) return null;
+
+      return h('div', {
+        className: 'sr-confirm-layer',
+        'data-sr-confirm': '',
+        role: 'presentation',
+        onMouseDown: function (event) {
+          if (event.target === event.currentTarget && !busy && props.onCancel) props.onCancel();
+        },
+      },
+        h('section', {
+          className: 'sr-confirm-card',
+          role: 'alertdialog',
+          'aria-modal': 'true',
+          'aria-labelledby': 'sr-confirm-title',
+          onMouseDown: function (event) { event.stopPropagation(); },
+        },
+          h('h3', { className: 'sr-confirm-title', id: 'sr-confirm-title' }, props.title || ''),
+          h('p', { className: 'sr-confirm-message' }, props.message || ''),
+          h('div', { className: 'sr-confirm-actions' },
+            h('button', {
+              ref: cancelRef,
+              type: 'button',
+              className: 'sr-ghost-btn',
+              disabled: busy,
+              onClick: function () { if (!busy && props.onCancel) props.onCancel(); },
+            }, props.cancelLabel || 'Cancel'),
+            h('button', {
+              type: 'button',
+              className: 'sr-primary-btn',
+              'data-danger': '',
+              disabled: busy,
+              onClick: function () { if (!busy && props.onConfirm) props.onConfirm(); },
+            }, busy ? (props.busyLabel || props.confirmLabel || '') : (props.confirmLabel || '')))));
     }
 
     function LibraryPanel(props) {
@@ -3394,9 +3496,12 @@
       var selectedState = React.useState([]);
       var selected = selectedState[0];
       var setSelected = selectedState[1];
-      var batchConfirmState = React.useState(false);
-      var batchConfirm = batchConfirmState[0];
-      var setBatchConfirm = batchConfirmState[1];
+      var confirmState = React.useState(null);
+      var confirm = confirmState[0];
+      var setConfirm = confirmState[1];
+      var confirmBusyState = React.useState(false);
+      var confirmBusy = confirmBusyState[0];
+      var setConfirmBusy = confirmBusyState[1];
       var tabStyle = {
         display: 'inline-flex',
         alignItems: 'center',
@@ -3422,13 +3527,13 @@
       function enterSelecting() {
         setSelecting(true);
         setSelected([]);
-        setBatchConfirm(false);
+        setConfirm(null);
       }
 
       function exitSelecting() {
         setSelecting(false);
         setSelected([]);
-        setBatchConfirm(false);
+        setConfirm(null);
       }
 
       function toggleSelected(id) {
@@ -3437,20 +3542,41 @@
             ? current.filter(function (value) { return value !== id; })
             : current.concat(id);
         });
-        setBatchConfirm(false);
+        setConfirm(null);
       }
 
       function toggleSelectAll() {
         setSelected(function (current) {
           return current.length === books.length ? [] : books.map(function (book) { return book.id; });
         });
-        setBatchConfirm(false);
+        setConfirm(null);
       }
 
-      async function deleteSelected() {
-        var result = await store.deleteBooks(selected);
-        if (result.ok) exitSelecting();
-        else setBatchConfirm(false);
+      function requestDeleteBook(book) {
+        setConfirm({ kind: 'single', ids: [book.id], alias: book.alias });
+        setConfirmBusy(false);
+      }
+
+      function requestDeleteSelected() {
+        if (!selected.length) return;
+        setConfirm({ kind: 'batch', ids: selected.slice() });
+        setConfirmBusy(false);
+      }
+
+      function closeConfirm() {
+        if (confirmBusy) return;
+        setConfirm(null);
+      }
+
+      async function runConfirm() {
+        if (!confirm || confirmBusy) return;
+        setConfirmBusy(true);
+        var result = confirm.kind === 'batch'
+          ? await store.deleteBooks(confirm.ids)
+          : await store.deleteBook(confirm.ids[0]);
+        setConfirmBusy(false);
+        setConfirm(null);
+        if (result.ok && confirm.kind === 'batch') exitSelecting();
       }
 
       function onDropFiles(event) {
@@ -3597,13 +3723,9 @@
             className: 'sr-ghost-btn',
             'data-danger': '',
             disabled: selected.length === 0,
-            onClick: function () { setBatchConfirm(true); },
+            onClick: requestDeleteSelected,
           }, t('library.batchDelete')),
           h('button', { type: 'button', className: 'sr-ghost-btn', onClick: exitSelecting }, t('library.batchCancel'))) : null,
-        batchConfirm && selected.length ? h('div', { className: 'sr-batch-confirm' },
-          h('span', { className: 'sr-field-hint' }, t('library.batchConfirmNote', { count: selected.length })),
-          h('button', { type: 'button', className: 'sr-ghost-btn', 'data-danger': '', onClick: function () { void deleteSelected(); } }, t('library.batchConfirm')),
-          h('button', { type: 'button', className: 'sr-ghost-btn', onClick: function () { setBatchConfirm(false); } }, t('library.cancel'))) : null,
         importing ? h('div', { className: 'sr-import-status' },
           h('span', null, t('library.importing', { name: importing.name, index: importing.index, total: importing.total })),
           h('div', { className: 'sr-progress' }, h('span', { style: { width: (importing.percent || 0) + '%' } }))) : null,
@@ -3623,9 +3745,30 @@
               selecting: selecting,
               selected: selected.indexOf(book.id) >= 0,
               onToggle: toggleSelected,
+              onRequestDelete: requestDeleteBook,
             });
           })),
         state.notice ? h('div', { className: 'sr-notice', 'data-tone': state.notice.tone || 'info', role: 'status' }, state.notice.text) : null);
+
+      var confirmTitle = confirm
+        ? (confirm.kind === 'batch' ? t('library.batchDeleteTitle') : t('library.deleteTitle'))
+        : '';
+      var confirmMessage = confirm
+        ? (confirm.kind === 'batch'
+          ? t('library.batchDeleteMessage', { count: confirm.ids.length })
+          : t('library.deleteMessage', { alias: confirm.alias }))
+        : '';
+      var confirmDialog = h(ConfirmDialog, {
+        open: !!confirm,
+        busy: confirmBusy,
+        title: confirmTitle,
+        message: confirmMessage,
+        confirmLabel: t('library.confirm'),
+        cancelLabel: t('library.cancel'),
+        busyLabel: t('library.deleting'),
+        onConfirm: function () { void runConfirm(); },
+        onCancel: closeConfirm,
+      });
 
       if (embedded) {
         return h(Fragment, null,
@@ -3636,7 +3779,8 @@
             h('div', { className: 'sr-tabs', style: { padding: '0 0 10px' } },
               h('button', { type: 'button', className: 'sr-tab', style: tabStyle, 'data-active': tab === 'books' ? '' : undefined, onClick: function () { switchTab('books'); } }, t('library.tab.books')),
               h('button', { type: 'button', className: 'sr-tab', style: tabStyle, 'data-active': tab === 'settings' ? '' : undefined, onClick: function () { switchTab('settings'); } }, t('library.tab.settings'))),
-            tab === 'books' ? booksView : settings));
+            tab === 'books' ? booksView : settings,
+            confirmDialog));
       }
 
       return h(Fragment, null,
@@ -3648,7 +3792,8 @@
         h('div', { className: 'sr-tabs' },
           h('button', { type: 'button', className: 'sr-tab', style: tabStyle, 'data-active': tab === 'books' ? '' : undefined, onClick: function () { switchTab('books'); } }, t('library.tab.books')),
           h('button', { type: 'button', className: 'sr-tab', style: tabStyle, 'data-active': tab === 'settings' ? '' : undefined, onClick: function () { switchTab('settings'); } }, t('library.tab.settings'))),
-        h('div', { className: 'sr-modal-body' }, tab === 'books' ? booksView : settings));
+        h('div', { className: 'sr-modal-body' }, tab === 'books' ? booksView : settings),
+        confirmDialog);
     }
 
     function LibraryOverlay(props) {
@@ -3662,6 +3807,7 @@
         if (!state.libraryOpen) return undefined;
         var onKey = function (event) {
           if (event.key === 'Escape') {
+            if (document.querySelector('[data-sr-confirm]')) return;
             event.preventDefault();
             event.stopPropagation();
             store.closeLibrary();
@@ -3730,6 +3876,7 @@
       LibraryOverlay: LibraryOverlay,
       LibraryButton: LibraryButton,
       SettingsSection: SettingsSection,
+      ConfirmDialog: ConfirmDialog,
     };
   }
 

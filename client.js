@@ -2089,7 +2089,6 @@
           }
           set({ books: books, importing: Object.assign({}, state.importing, { phase: 'saving', percent: 100 }) });
           imported.push(meta);
-          if (!state.active) await openBook(id);
         } catch (error) {
           failures.push({
             name: file.name,

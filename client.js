@@ -2434,6 +2434,7 @@
       display: flex;
       flex-direction: column;
       width: min(760px, calc(100vw - 32px));
+      height: min(82vh, 760px);
       max-height: min(82vh, 760px);
       overflow: hidden;
       border: 1px solid var(--dsw-alias-border-l1);

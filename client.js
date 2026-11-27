@@ -2431,9 +2431,9 @@
       inset: 0;
       z-index: 80;
       display: flex;
-      align-items: flex-start;
+      align-items: center;
       justify-content: center;
-      padding: clamp(40px, 8vh, 80px) 24px 24px;
+      padding: 24px;
       box-sizing: border-box;
       background: rgba(0, 0, 0, .32);
       pointer-events: auto;
@@ -2442,7 +2442,8 @@
       box-sizing: border-box;
       display: flex;
       flex-direction: column;
-      width: min(760px, calc(100vw - 32px));
+      width: min(800px, calc(100vw - 32px));
+      height: min(72vh, 560px);
       max-height: min(82vh, 760px);
       overflow: hidden;
       border: 1px solid var(--dsw-alias-border-l1);

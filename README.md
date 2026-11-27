@@ -41,6 +41,14 @@ target: dsh-fish-reader@1.2.3
 
 或在支持包名安装的 Plugins 入口填入 `dsh-fish-reader@1.2.3`。
 
+也可以直接用 DSH CLI：
+
+```powershell
+dsh plugin --profile desktop add dsh-fish-reader@1.2.3
+```
+
+`--profile` 按你的实际 profile 名称调整（常见为 `desktop` 或 `web`）。
+
 ### 方式二：Plugin Manager 安装本地目录
 
 1. 打开 DSH 的 **插件 / Plugins** 页面。

@@ -952,7 +952,6 @@
     'library.importReportTitle': 'Import result',
     'library.importReportHint': 'Wrong characters? Pick another encoding and re-decode. Files are read again only on this device.',
     'library.importReportSummaryFail': 'Import failed for {count} file(s).',
-    'library.importPending': 'Waiting…',
     'library.importedAs': 'Imported as “{alias}” ({encoding})',
     'library.redecodedAs': 'Re-decoded as “{alias}” ({encoding})',
     'library.redecode': 'Re-decode',
@@ -1082,7 +1081,6 @@
     'library.importReportTitle': '导入结果',
     'library.importReportHint': '正文乱码时可以改编码重新解码；文件只在这台设备上重新读取。',
     'library.importReportSummaryFail': '{count} 个文件导入失败。',
-    'library.importPending': '等待导入…',
     'library.importedAs': '已导入为《{alias}》（{encoding}）',
     'library.redecodedAs': '已重新解码为《{alias}》（{encoding}）',
     'library.redecode': '重新解码',
@@ -2177,11 +2175,13 @@
         uncertain: decoded.uncertain === true,
         charCount: decoded.text.length,
       };
+      await idbPut(Object.assign({}, existing, patch, { text: decoded.text }));
+      // Rebuild from the current list: another import may have finished while
+      // the record was being written.
       var books = state.books.map(function (book) {
         return book.id === bookId ? Object.assign({}, book, patch) : book;
       });
       var updated = books.filter(function (book) { return book.id === bookId; })[0] || existing;
-      await idbPut(Object.assign({}, updated, { text: decoded.text }));
       if (!saveLibrary(books)) throw new Error(tr('library.storageError'));
       var next = { books: books };
       var reading = state.active && state.active.id === bookId;
@@ -2203,13 +2203,11 @@
       if (!list.length) return { ok: true, imported: 0, failed: 0 };
       var items = list.map(newImportItem);
       var imported = 0;
-      set({
-        importReport: { reportId: 'report-' + Date.now(), items: items },
-        error: null,
-      });
+      // The report is the result view: it appears only after every file has
+      // been read, while the library's inline progress bar owns the wait.
+      set({ importReport: null, error: null });
       for (var i = 0; i < items.length; i++) {
         var item = items[i];
-        updateImportItem(item.itemId, { busy: true, percent: 0 });
         set({
           importing: {
             name: item.name,
@@ -2221,7 +2219,6 @@
         });
         try {
           var decoded = await readImportFile(item.file, function (fraction) {
-            updateImportItem(item.itemId, { busy: true, percent: Math.round(fraction * 100) });
             set({
               importing: {
                 name: item.name,
@@ -2234,9 +2231,7 @@
           });
           var meta = await addImportedBook(item.file, decoded);
           imported += 1;
-          updateImportItem(item.itemId, {
-            busy: false,
-            percent: undefined,
+          Object.assign(item, {
             ok: true,
             bookId: meta.id,
             alias: meta.alias,
@@ -2247,15 +2242,16 @@
             error: '',
           });
         } catch (error) {
-          updateImportItem(item.itemId, {
-            busy: false,
-            percent: undefined,
+          Object.assign(item, {
             ok: false,
             error: error && error.message ? error.message : String(error),
           });
         }
       }
-      set({ importing: null });
+      set({
+        importing: null,
+        importReport: { reportId: 'report-' + Date.now(), items: items },
+      });
       return { ok: imported === items.length, imported: imported, failed: items.length - imported };
     }
 
@@ -2778,19 +2774,6 @@
       font-size: 11px;
       line-height: 16px;
       overflow-wrap: anywhere;
-    }
-    .sr-report-progress {
-      display: flex;
-      flex-direction: column;
-      gap: 5px;
-      margin: 0 16px 8px;
-      padding: 7px 9px;
-      border: 1px solid var(--dsw-alias-border-l1);
-      border-radius: 7px;
-      background: var(--dsw-alias-bg-layer-1);
-      color: var(--dsw-alias-label-secondary);
-      font-size: 11px;
-      line-height: 15px;
     }
     .sr-report-list {
       display: flex;
@@ -3919,7 +3902,6 @@
       var setChoices = choiceState[1];
       var cardRef = React.useRef(null);
       var report = state.importReport;
-      var importing = state.importing;
       var reportId = report ? report.reportId : null;
 
       React.useEffect(function () {
@@ -3931,9 +3913,6 @@
           if (event.key !== 'Escape') return;
           event.preventDefault();
           event.stopPropagation();
-          // The dialog doubles as the progress view, so it stays until the
-          // batch finishes.
-          if (store.getSnapshot().importing) return;
           store.dismissImportReport();
         };
         window.addEventListener('keydown', onKey, true);
@@ -3946,7 +3925,6 @@
       if (!report) return null;
 
       var items = report.items || [];
-      var busyImport = !!importing;
       var okCount = items.filter(function (item) { return item.ok; }).length;
       var failedCount = items.length - okCount;
       var summary = okCount === items.length
@@ -3961,11 +3939,6 @@
         return item.encodingKind || 'auto';
       }
 
-      function dismissReport() {
-        if (busyImport) return;
-        store.dismissImportReport();
-      }
-
       function chooseEncoding(itemId, value) {
         setChoices(function (current) {
           var next = Object.assign({}, current);
@@ -3976,7 +3949,6 @@
 
       function renderRow(item) {
         var busy = item.busy === true;
-        var locked = busy || busyImport;
         var status = null;
         if (busy) {
           status = h('span', { className: 'sr-report-state' }, t('library.importBusy', { percent: item.percent || 0 }));
@@ -3985,8 +3957,6 @@
             alias: item.alias,
             encoding: item.encoding,
           }));
-        } else if (!item.error) {
-          status = h('span', { className: 'sr-report-state' }, t('library.importPending'));
         }
         var value = choiceFor(item);
         return h('li', {
@@ -4006,7 +3976,7 @@
               value: value,
               'aria-label': t('library.encodingLabel'),
               title: t('library.encodingLabel'),
-              disabled: locked,
+              disabled: busy,
               onChange: function (event) { chooseEncoding(item.itemId, event.target.value); },
             }, ENCODING_OPTIONS.map(function (option) {
               return h('option', { value: option, key: option },
@@ -4015,7 +3985,7 @@
             h('button', {
               type: 'button',
               className: 'sr-ghost-btn',
-              disabled: locked || !item.file,
+              disabled: busy || !item.file,
               onClick: function () { void store.retryImportItem(item.itemId, value); },
             }, busy
               ? t('library.importBusy', { percent: item.percent || 0 })
@@ -4028,7 +3998,7 @@
         'data-sr-report': '',
         role: 'presentation',
         onMouseDown: function (event) {
-          if (event.target === event.currentTarget) dismissReport();
+          if (event.target === event.currentTarget) store.dismissImportReport();
         },
       },
         h('section', {
@@ -4049,20 +4019,15 @@
               className: 'sr-close-btn',
               'aria-label': t('library.dismiss'),
               title: t('library.dismiss'),
-              disabled: busyImport,
-              onClick: dismissReport,
+              onClick: function () { store.dismissImportReport(); },
             }, h(CloseIcon))),
-          importing ? h('div', { className: 'sr-report-progress' },
-            h('span', null, t('library.importing', { name: importing.name, index: importing.index, total: importing.total })),
-            h('div', { className: 'sr-progress' }, h('span', { style: { width: (importing.percent || 0) + '%' } }))) : null,
           h('ul', { className: 'sr-report-list' }, items.map(renderRow)),
           h('div', { className: 'sr-report-foot' },
             h('span', { className: 'sr-report-foot-hint' }, t('library.importReportHint')),
             h('button', {
               type: 'button',
               className: 'sr-primary-btn',
-              disabled: busyImport,
-              onClick: dismissReport,
+              onClick: function () { store.dismissImportReport(); },
             }, t('library.dismiss')))));
     }
 

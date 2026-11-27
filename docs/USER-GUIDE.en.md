@@ -31,7 +31,7 @@ The text appears in the composer placeholder, with the page controls beside **Fu
 ## Batch management
 
 - **Batch import**: click **Batch import TXT / EPUB** to select multiple files, or drag multiple TXT/EPUB files into the library.
-- **Import result dialog**: it opens while importing and lists every file as waiting / reading / imported / failed; imported rows show the title and the encoding that was detected.
+- **Import result dialog**: it opens after every file has been read and lists each one as imported or failed; progress during the import stays in the library; imported rows show the title and the encoding that was detected.
 - **Wrong encoding**: pick an encoding for that one file and click **Re-decode** to read it again in place, keeping the title and progress; failed rows show the reason and offer **Retry** with the chosen encoding.
 - **Batch delete**: click **Select**, check several books, then click **Delete selected** and confirm in the dialog.
 - Single-book deletion uses the same confirmation dialog.

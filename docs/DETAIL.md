@@ -4,7 +4,7 @@
 
 - DeepSeek Harness `0.2.2-rc.5`（Desktop，Windows）
 - Profile：`desktop`
-- 插件包：`dsh-fish-reader@1.2.2`（显示名 **DSH Fish Reader**；包名、slot id、存储键统一为 fish-reader）
+- 插件包：`dsh-fish-reader@1.2.3`（显示名 **DSH Fish Reader**；包名、slot id、存储键统一为 fish-reader）
 - 安装结果：`application: applied`
 
 ## 1. 阅读区挂载方式（输入框占位覆盖）

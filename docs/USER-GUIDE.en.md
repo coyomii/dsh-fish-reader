@@ -31,6 +31,8 @@ The text appears in the composer placeholder, with the page controls beside **Fu
 ## Batch management
 
 - **Batch import**: click **Batch import TXT / EPUB** to select multiple files, or drag multiple TXT/EPUB files into the library.
+- **Text encoding**: choose auto-detection or UTF-8 / GB18030 / Big5 / UTF-16 / UTF-32 beside the import button.
+- **Import result**: after importing, a success/failure list appears; failed files can be retried with the selected encoding.
 - **Batch delete**: click **Select**, check several books, then click **Delete selected** and confirm in the dialog.
 - Single-book deletion uses the same confirmation dialog.
 - Deleting removes only the imported copies and reading progress; **original files are untouched**.

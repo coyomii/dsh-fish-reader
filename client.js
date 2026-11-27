@@ -947,6 +947,14 @@
     'library.showing': 'Showing {shown} of {total}',
     'library.noMatches': 'No matching books',
     'library.noMatchesHint': 'Try a different title or filename.',
+    'library.encodingAuto': 'Auto',
+    'library.encodingLabel': 'Text encoding',
+    'library.importReportTitle': 'Import result',
+    'library.importReportSummary': 'Imported {imported}, failed {failed}',
+    'library.importedAs': 'Imported as “{alias}” ({encoding})',
+    'library.retryHint': 'Retry failed text files with {encoding}:',
+    'library.retryFailed': 'Retry {count} failed file(s)',
+    'library.dismiss': 'Dismiss',
     'library.importing': 'Importing {name} ({index}/{total})',
     'library.empty': 'The library is empty. Import a TXT or EPUB file to start reading.',
     'library.emptyHint': 'The original file is never modified or moved.',
@@ -1066,6 +1074,14 @@
     'library.showing': '显示 {shown} / {total}',
     'library.noMatches': '没有匹配的书籍',
     'library.noMatchesHint': '换个书名或文件名试试。',
+    'library.encodingAuto': '自动',
+    'library.encodingLabel': '文本编码',
+    'library.importReportTitle': '导入结果',
+    'library.importReportSummary': '已导入 {imported} 本，失败 {failed} 本',
+    'library.importedAs': '已导入为《{alias}》（{encoding}）',
+    'library.retryHint': '用 {encoding} 重试失败的文本文件：',
+    'library.retryFailed': '重试 {count} 个失败文件',
+    'library.dismiss': '关闭报告',
     'library.importing': '正在导入 {name}（{index}/{total}）',
     'library.empty': '书库还是空的。导入一本 TXT 或 EPUB 开始阅读。',
     'library.emptyHint': '原始文件不会被修改或移动。',
@@ -1418,12 +1434,16 @@
     return core.createStreamDecoder(encoding);
   }
 
-  async function readTxtFile(file, onProgress) {
+  var ENCODING_OPTIONS = ['auto', 'utf-8', 'utf-16le', 'utf-16be', 'utf-32le', 'utf-32be', 'gb18030', 'big5'];
+
+  async function readTxtFile(file, onProgress, forcedEncoding) {
     if (!file || typeof file.size !== 'number') throw new Error('无效的文件');
     if (file.size === 0) throw new Error('文件为空');
     var sampleSize = Math.min(file.size, SAMPLE_BYTES);
     var sample = new Uint8Array(await file.slice(0, sampleSize).arrayBuffer());
-    var encoding = core.detectEncoding(sample);
+    var encoding = forcedEncoding && forcedEncoding !== 'auto'
+      ? { kind: forcedEncoding, label: forcedEncoding.toUpperCase(), uncertain: false, bom: 0 }
+      : core.detectEncoding(sample);
     var decoder = createStreamDecoder(encoding);
     var parts = [];
     var offset = 0;
@@ -1472,12 +1492,12 @@
     };
   }
 
-  async function readImportFile(file, onProgress) {
+  async function readImportFile(file, onProgress, forcedEncoding) {
     var head = new Uint8Array(await file.slice(0, 4).arrayBuffer());
     var zipMagic = head.length >= 4 && head[0] === 0x50 && head[1] === 0x4b
       && (head[2] === 0x03 || head[2] === 0x05);
     if (/\.epub$/i.test(file.name || '') || zipMagic) return readEpubFile(file, onProgress);
-    return readTxtFile(file, onProgress);
+    return readTxtFile(file, onProgress, forcedEncoding);
   }
 
   // ---------------------------------------------------------------------------
@@ -1512,6 +1532,7 @@
       loading: false,
       error: null,
       importing: null,
+      importReport: null,
       shortcutCapture: null,
       shortcutError: null,
     };
@@ -2009,8 +2030,12 @@
     }
 
     function closeLibrary() {
-      set({ libraryOpen: false, shortcutCapture: null, shortcutError: null });
+      set({ libraryOpen: false, shortcutCapture: null, shortcutError: null, importReport: null });
       scheduleHide();
+    }
+
+    function dismissImportReport() {
+      set({ importReport: null });
     }
 
     function toggleLibrary() {
@@ -2065,11 +2090,14 @@
       flash(tr('settings.shortcutResetDone'), 'success');
     }
 
-    async function importFiles(files) {
+    async function importFiles(files, options) {
       var list = Array.from(files || []);
       if (!list.length) return { ok: true, imported: 0 };
+      var forcedEncoding = options && options.encoding && options.encoding !== 'auto' ? options.encoding : undefined;
       var imported = [];
       var failures = [];
+      var reportItems = [];
+      set({ importReport: null, error: null });
       for (var i = 0; i < list.length; i++) {
         var file = list[i];
         set({
@@ -2092,7 +2120,7 @@
                 percent: Math.round(fraction * 100),
               },
             });
-          });
+          }, forcedEncoding);
           var id = newId();
           var meta = {
             id: id,
@@ -2115,14 +2143,26 @@
           }
           set({ books: books, importing: Object.assign({}, state.importing, { phase: 'saving', percent: 100 }) });
           imported.push(meta);
+          reportItems.push({ ok: true, name: file.name, alias: meta.alias, encoding: meta.encoding });
         } catch (error) {
+          var message = error && error.message ? error.message : String(error);
           failures.push({
             name: file.name,
-            message: error && error.message ? error.message : String(error),
+            message: message,
+            file: file,
           });
+          reportItems.push({ ok: false, name: file.name, error: message, file: file });
         }
       }
-      set({ importing: null });
+      set({
+        importing: null,
+        importReport: {
+          items: reportItems,
+          imported: imported.length,
+          failed: failures.length,
+          encoding: forcedEncoding || 'auto',
+        },
+      });
       if (!imported.length && failures.length) {
         flash(tr('library.importAllFailed', {
           count: failures.length,
@@ -2180,6 +2220,7 @@
       assignShortcut: assignShortcut,
       resetShortcuts: resetShortcuts,
       importFiles: importFiles,
+      dismissImportReport: dismissImportReport,
       flash: flash,
     };
   }
@@ -2547,6 +2588,51 @@
       border: 1px solid var(--dsw-alias-border-l1);
       border-radius: 8px;
       background: var(--dsw-alias-bg-layer-2);
+    }
+    .sr-import-report {
+      margin: 0 0 10px;
+      padding: 10px;
+      border: 1px solid var(--dsw-alias-border-l1);
+      border-radius: 8px;
+      background: var(--dsw-alias-bg-layer-1);
+    }
+    .sr-import-report-head {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 7px;
+    }
+    .sr-import-report-list {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      max-height: 150px;
+      overflow: auto;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+    .sr-import-report-item {
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+      padding: 5px 7px;
+      border-radius: 5px;
+      background: var(--dsw-alias-bg-layer-2);
+      font-size: 11px;
+      line-height: 1.45;
+    }
+    .sr-import-report-item strong { font-weight: 600; overflow-wrap: anywhere; }
+    .sr-import-report-item span { color: var(--dsw-alias-label-secondary); overflow-wrap: anywhere; }
+    .sr-import-report-item[data-ok] span { color: var(--dsw-alias-state-success-primary); }
+    .sr-import-report-item:not([data-ok]) span { color: var(--dsw-alias-state-error-primary); }
+    .sr-import-report-retry {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 8px;
     }
     .sr-library-filter {
       display: flex;
@@ -3605,6 +3691,9 @@
       var sortState = React.useState('recent');
       var sortMode = sortState[0];
       var setSortMode = sortState[1];
+      var importEncodingState = React.useState('auto');
+      var importEncoding = importEncodingState[0];
+      var setImportEncoding = importEncodingState[1];
       var tabStyle = {
         display: 'inline-flex',
         alignItems: 'center',
@@ -3619,8 +3708,19 @@
 
       function chooseFiles(event) {
         var files = event.target.files;
-        if (files && files.length) void store.importFiles(files);
+        if (files && files.length) void store.importFiles(files, { encoding: importEncoding });
         event.target.value = '';
+      }
+
+      function encodingLabel(value) {
+        return value === 'auto' ? t('library.encodingAuto') : value.toUpperCase();
+      }
+
+      function retryFailedImports() {
+        var report = state.importReport;
+        if (!report) return;
+        var files = report.items.filter(function (item) { return !item.ok && item.file; }).map(function (item) { return item.file; });
+        if (files.length) void store.importFiles(files, { encoding: importEncoding });
       }
 
       function switchTab(next) {
@@ -3695,11 +3795,15 @@
         event.preventDefault();
         if (state.importing || selecting) return;
         var files = event.dataTransfer && event.dataTransfer.files;
-        if (files && files.length) void store.importFiles(files);
+        if (files && files.length) void store.importFiles(files, { encoding: importEncoding });
       }
 
       var books = state.books;
       var importing = state.importing;
+      var importReport = state.importReport;
+      var failedImportFiles = importReport
+        ? importReport.items.filter(function (item) { return !item.ok && item.file; })
+        : [];
       var normalizedQuery = query.trim().toLowerCase();
       var filteredBooks = books.filter(function (book) {
         if (!normalizedQuery) return true;
@@ -3832,6 +3936,15 @@
             style: { display: 'none' },
             onChange: chooseFiles,
           }),
+          h('select', {
+            className: 'sr-select',
+            value: importEncoding,
+            'aria-label': t('library.encodingLabel'),
+            title: t('library.encodingLabel'),
+            onChange: function (event) { setImportEncoding(event.target.value); },
+          }, ENCODING_OPTIONS.map(function (value) {
+            return h('option', { value: value, key: value }, encodingLabel(value));
+          })),
           h('button', {
             type: 'button',
             className: 'sr-ghost-btn',
@@ -3860,6 +3973,25 @@
             h('option', { value: 'imported' }, t('library.sortImported')),
             h('option', { value: 'name' }, t('library.sortName'))),
           h('span', { className: 'sr-field-hint' }, t('library.showing', { shown: visibleBooks.length, total: books.length }))),
+        importReport ? h('div', { className: 'sr-import-report' },
+          h('div', { className: 'sr-import-report-head' },
+            h('strong', null, t('library.importReportTitle')),
+            h('span', { className: 'sr-field-hint' }, t('library.importReportSummary', { imported: importReport.imported, failed: importReport.failed })),
+            h('button', { type: 'button', className: 'sr-ghost-btn', onClick: function () { store.dismissImportReport(); } }, t('library.dismiss'))),
+          h('ul', { className: 'sr-import-report-list' }, importReport.items.map(function (item, index) {
+            return h('li', {
+              key: item.name + '-' + index,
+              className: 'sr-import-report-item',
+              'data-ok': item.ok ? '' : undefined,
+            },
+              h('strong', null, item.name),
+              h('span', null, item.ok
+                ? t('library.importedAs', { alias: item.alias, encoding: item.encoding })
+                : item.error));
+          })),
+          failedImportFiles.length ? h('div', { className: 'sr-import-report-retry' },
+            h('span', { className: 'sr-field-hint' }, t('library.retryHint', { encoding: encodingLabel(importEncoding) })),
+            h('button', { type: 'button', className: 'sr-ghost-btn', onClick: retryFailedImports }, t('library.retryFailed', { count: failedImportFiles.length }))) : null) : null,
         selecting ? h('div', { className: 'sr-batch-bar' },
           h('label', { className: 'sr-check' },
             h('input', {

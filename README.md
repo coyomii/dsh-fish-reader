@@ -8,7 +8,7 @@
 
 正文显示在输入框占位区，工具栏按钮位于“完全权限”旁边，右侧是进度和搜索。
 
-> 显示名统一为 **DSH Fish Reader**。包名、slot id、IndexedDB/localStorage 键现在都改为 `dsh-fish-reader` / `fish-reader`。首次启动会把旧的 `dsh-shadow-reader` / `shadow-reader` 书库和进度自动迁移过来；旧标识只在迁移代码里保留。
+> 显示名统一为 **DSH Fish Reader**。包名、slot id、IndexedDB/localStorage 键统一为 `dsh-fish-reader` / `fish-reader`。
 
 ## 获取
 
@@ -36,10 +36,10 @@ git clone https://github.com/coyomii/dsh-fish-reader.git
 
 ```text
 plugin_manager install_bundle
-target: dsh-fish-reader@1.2.1
+target: dsh-fish-reader@1.2.2
 ```
 
-或在支持包名安装的 Plugins 入口填入 `dsh-fish-reader@1.2.1`。
+或在支持包名安装的 Plugins 入口填入 `dsh-fish-reader@1.2.2`。
 
 ### 方式二：Plugin Manager 安装本地目录
 

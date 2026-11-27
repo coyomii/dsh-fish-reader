@@ -21,7 +21,7 @@
 - 当行存在时，用 `[data-composer-card]:has(.sr-input-line) [data-composer-placeholder] { visibility:hidden; }` 隐藏原 placeholder。
 - 输入框为空、未聚焦、无附件且不处于 `inputMode` 时才显示；一旦聚焦进入输入模式，组件返回一个隐藏锚点，正文行卸载，placeholder 恢复。
 - 组件通过找到最近的 `[data-composer-card]` 和其中的 `[contenteditable="true"]`，监听 editor 的 focus/blur：focus 置 `editing=true` 并调用 `noteInputFocus(true)` 锁存 `inputMode=true`；blur 只置 `editing=false`，不清 `inputMode`，所以点输入框外空白不会自动恢复正文。
-- 恢复阅读必须显式：工具栏眼睛、`Alt+/`、打开/继续书、在隐藏（非输入模式）状态下点上一段/下一段。显式显示会清 `inputMode` 并让空输入框失焦；有草稿时不覆盖输入。
+- 恢复阅读必须显式：工具栏眼睛、`Alt+/`、从书库开始阅读/继续阅读、在隐藏（非输入模式）状态下点上一段/下一段。显式显示会清 `inputMode` 并让空输入框失焦；有草稿时不覆盖输入。
 - 输入模式下上一段/下一段按钮禁用且 store 的 `previous`/`nextVisible` 也拒绝执行，不会偷偷翻页。
 - 控制区独立注册到 `conversation.input.left`（`order: 0`），位置在 `+`、`完全权限`、Plan 之后；这里只放**上一段、下一段、显示/隐藏**三个按钮。正文覆盖层负责文字、进度和搜索图标。
 - 没有打开书时，`input.left` 不渲染三个按钮；打开书后才显示。书库入口仍是左侧栏底部书本图标。
@@ -100,6 +100,13 @@
 - 进度从 `0%` 到 `100%`、`载入中`、隐藏阅读（进度显示空白占位）都不会改变工具栏按钮位置；隐藏时工具栏按钮保留。
 - 临时提示改为绝对定位的 `.sr-input-toast`，搜索错误提示放在浮层内部；两者都不占行内布局，也不推动按钮。
 - 搜索框是 composer 卡片上方的绝对定位浮层，输入区和底部状态栏都不移动。
+
+### 书库操作
+
+- 书库行按钮为 **开始阅读 / 继续阅读 / 关闭阅读**（`library.openBook` / `library.resume` / `library.closeBook`），与“关闭阅读”组成同一套动宾说法。
+- 点开始阅读或继续阅读后，只有 `openBook()` 成功（IndexedDB 读到正文）才自动关闭书库；失败（副本丢失、存储异常）时书库保持打开，错误显示在面板内，避免错误被一起关掉。
+- 输入框里已有草稿或附件时，正文按设计不会覆盖输入；此时 `openBook()` 返回 `blocked`，书库保持打开并提示“清空后点工具栏眼睛即可阅读”，避免点了按钮什么都没发生。
+- 书库在“嵌入设置页”形态下也使用同一行组件；那里 `closeLibrary()` 只是把 `libraryOpen` 置为 false，不会改变宿主设置页。
 
 ### 自定义快捷键
 

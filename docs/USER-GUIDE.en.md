@@ -24,7 +24,7 @@ The text appears in the composer placeholder, with the page controls beside **Fu
 
 1. Click the book icon at the bottom of the left sidebar to open the **DSH Fish Reader library**.
 2. Click **Batch import TXT / EPUB** and choose one or more novels, or drop multiple files into the library. Importing does not switch the current book automatically.
-3. Click **Open** or **Continue**.
+3. Click **Start reading** (never opened) or **Resume reading** (opened before); the library closes automatically.
 4. When the composer is empty, unfocused and the reader is not hidden, the novel appears in the composer placeholder.
 5. Click the composer to enter input mode; the novel hides and you can type normally.
 

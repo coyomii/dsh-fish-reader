@@ -962,8 +962,9 @@
     'library.importing': 'Importing {name} ({index}/{total})',
     'library.empty': 'The library is empty. Import a TXT or EPUB file to start reading.',
     'library.emptyHint': 'The original file is never modified or moved.',
-    'library.openBook': 'Open',
-    'library.resume': 'Resume',
+    'library.openBook': 'Start reading',
+    'library.resume': 'Resume reading',
+    'library.readerBlockedByDraft': 'The composer has content, so the reader stays hidden. Clear it, then click the eye button.',
     'library.closeBook': 'Close reader',
     'library.rename': 'Rename',
     'library.delete': 'Delete',
@@ -1091,8 +1092,9 @@
     'library.importing': '正在导入 {name}（{index}/{total}）',
     'library.empty': '书库还是空的。导入一本 TXT 或 EPUB 开始阅读。',
     'library.emptyHint': '原始文件不会被修改或移动。',
-    'library.openBook': '打开',
-    'library.resume': '继续',
+    'library.openBook': '开始阅读',
+    'library.resume': '继续阅读',
+    'library.readerBlockedByDraft': '输入框里还有内容，正文暂时不覆盖；清空后点工具栏眼睛即可阅读。',
     'library.closeBook': '关闭阅读',
     'library.rename': '改名',
     'library.delete': '删除',
@@ -1683,7 +1685,12 @@
         writeJson(LS_LAST, id);
         saveProgress(core.percent(cursor, text.length, first.atEnd));
         scheduleHide();
-        return { ok: true };
+        return {
+          ok: true,
+          // A non-empty composer intentionally keeps the reader hidden, so the
+          // caller can explain instead of closing the library on a no-op.
+          blocked: composerState.draft !== '' || composerState.attachments > 0,
+        };
       } catch (error) {
         set({ loading: false, error: error && error.message ? error.message : String(error) });
         return { ok: false, message: state.error };
@@ -3751,6 +3758,20 @@
         setRenaming(true);
       }
 
+      async function openFromRow() {
+        var result = await store.openBook(book.id);
+        if (!result || !result.ok) return;
+        if (result.blocked) {
+          // The composer has a draft, so the reader will not cover it.  Say so
+          // instead of closing the library with nothing visible happening.
+          store.flash(t('library.readerBlockedByDraft'), 'info');
+          return;
+        }
+        // Leave the library only after the book is actually loaded: a failed
+        // open keeps the panel visible so its error can be read.
+        store.closeLibrary();
+      }
+
       function saveRename() {
         var result = store.renameBook(book.id, name);
         if (result.ok) {
@@ -3821,7 +3842,7 @@
               h('button', {
                 type: 'button',
                 className: 'sr-ghost-btn',
-                onClick: function () { void store.openBook(book.id); },
+                onClick: function () { void openFromRow(); },
               }, progress ? t('library.resume') : t('library.openBook')),
               active ? h('button', { type: 'button', className: 'sr-ghost-btn', onClick: function () { store.closeBook(); } }, t('library.closeBook')) : null,
               h('button', { type: 'button', className: 'sr-ghost-btn', onClick: startRename }, t('library.rename')),

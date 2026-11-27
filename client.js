@@ -947,13 +947,18 @@
     'library.showing': 'Showing {shown} of {total}',
     'library.noMatches': 'No matching books',
     'library.noMatchesHint': 'Try a different title or filename.',
-    'library.encodingAuto': 'Auto',
+    'library.encodingAuto': 'Auto-detect',
     'library.encodingLabel': 'Text encoding',
     'library.importReportTitle': 'Import result',
-    'library.importReportSummary': 'Imported {imported}, failed {failed}',
+    'library.importReportHint': 'Wrong characters? Pick another encoding and re-decode. Files are read again only on this device.',
+    'library.importReportSummaryFail': 'Import failed for {count} file(s).',
+    'library.importPending': 'Waiting…',
     'library.importedAs': 'Imported as “{alias}” ({encoding})',
-    'library.retryHint': 'Retry failed text files with {encoding}:',
-    'library.retryFailed': 'Retry {count} failed file(s)',
+    'library.redecodedAs': 'Re-decoded as “{alias}” ({encoding})',
+    'library.redecode': 'Re-decode',
+    'library.retryImport': 'Retry',
+    'library.importBusy': 'Reading… {percent}%',
+    'library.importUncertain': 'Auto-detection was uncertain',
     'library.dismiss': 'Dismiss',
     'library.importing': 'Importing {name} ({index}/{total})',
     'library.empty': 'The library is empty. Import a TXT or EPUB file to start reading.',
@@ -990,8 +995,6 @@
     'library.neverRead': 'Not started',
     'library.importDone': 'Imported {count} book(s).',
     'library.importDoneSome': 'Imported {count} book(s); {failed} failed.',
-    'library.importAllFailed': 'Import failed for {count} file(s): {message}',
-    'library.importFailed': 'Import failed: {message}',
     'library.storageError': 'Local storage is unavailable, so the library cannot be saved.',
     'library.missingCopy': 'This library copy is missing. Delete the row and import again.',
     'library.copyNote': 'Books, progress and settings stay in this browser profile. No messages are sent to the conversation or the model.',
@@ -1074,14 +1077,19 @@
     'library.showing': '显示 {shown} / {total}',
     'library.noMatches': '没有匹配的书籍',
     'library.noMatchesHint': '换个书名或文件名试试。',
-    'library.encodingAuto': '自动',
+    'library.encodingAuto': '自动检测',
     'library.encodingLabel': '文本编码',
     'library.importReportTitle': '导入结果',
-    'library.importReportSummary': '已导入 {imported} 本，失败 {failed} 本',
+    'library.importReportHint': '正文乱码时可以改编码重新解码；文件只在这台设备上重新读取。',
+    'library.importReportSummaryFail': '{count} 个文件导入失败。',
+    'library.importPending': '等待导入…',
     'library.importedAs': '已导入为《{alias}》（{encoding}）',
-    'library.retryHint': '用 {encoding} 重试失败的文本文件：',
-    'library.retryFailed': '重试 {count} 个失败文件',
-    'library.dismiss': '关闭报告',
+    'library.redecodedAs': '已重新解码为《{alias}》（{encoding}）',
+    'library.redecode': '重新解码',
+    'library.retryImport': '重试',
+    'library.importBusy': '读取中… {percent}%',
+    'library.importUncertain': '自动识别不确定，建议核对编码',
+    'library.dismiss': '关闭',
     'library.importing': '正在导入 {name}（{index}/{total}）',
     'library.empty': '书库还是空的。导入一本 TXT 或 EPUB 开始阅读。',
     'library.emptyHint': '原始文件不会被修改或移动。',
@@ -1117,8 +1125,6 @@
     'library.neverRead': '尚未开始',
     'library.importDone': '已导入 {count} 本书。',
     'library.importDoneSome': '已导入 {count} 本书，{failed} 本失败。',
-    'library.importAllFailed': '{count} 个文件导入失败：{message}',
-    'library.importFailed': '导入失败：{message}',
     'library.storageError': '本机存储不可用，书库无法保存。',
     'library.missingCopy': '书库副本已丢失。删除这一行后重新导入即可。',
     'library.copyNote': '书籍、进度和设置只保存在本机浏览器中。不会向当前对话或模型发送消息。',
@@ -1435,6 +1441,19 @@
   }
 
   var ENCODING_OPTIONS = ['auto', 'utf-8', 'utf-16le', 'utf-16be', 'utf-32le', 'utf-32be', 'gb18030', 'big5'];
+  var ENCODING_LABELS = {
+    'utf-8': 'UTF-8',
+    'utf-16le': 'UTF-16 LE',
+    'utf-16be': 'UTF-16 BE',
+    'utf-32le': 'UTF-32 LE',
+    'utf-32be': 'UTF-32 BE',
+    'gb18030': 'GB18030',
+    'big5': 'Big5',
+  };
+
+  function encodingName(value) {
+    return ENCODING_LABELS[value] || String(value || '').toUpperCase();
+  }
 
   async function readTxtFile(file, onProgress, forcedEncoding) {
     if (!file || typeof file.size !== 'number') throw new Error('无效的文件');
@@ -1442,7 +1461,7 @@
     var sampleSize = Math.min(file.size, SAMPLE_BYTES);
     var sample = new Uint8Array(await file.slice(0, sampleSize).arrayBuffer());
     var encoding = forcedEncoding && forcedEncoding !== 'auto'
-      ? { kind: forcedEncoding, label: forcedEncoding.toUpperCase(), uncertain: false, bom: 0 }
+      ? { kind: forcedEncoding, label: encodingName(forcedEncoding), uncertain: false, bom: 0 }
       : core.detectEncoding(sample);
     var decoder = createStreamDecoder(encoding);
     var parts = [];
@@ -1463,10 +1482,13 @@
     }
     var text = core.normalizeText(parts.join(''));
     if (!text.trim()) throw new Error('没有可读正文');
-    if (!core.isReadableText(text)) throw new Error('无法识别文件编码，或这不是可读的文本文件');
+    if (!core.isReadableText(text)) {
+      throw new Error('无法按 ' + encoding.label + ' 解码，或这不是可读的文本文件');
+    }
     return {
       text: text,
       encoding: encoding.label,
+      encodingKind: encoding.kind || '',
       uncertain: encoding.uncertain === true,
       format: 'txt',
     };
@@ -2090,93 +2112,209 @@
       flash(tr('settings.shortcutResetDone'), 'success');
     }
 
-    async function importFiles(files, options) {
+    var importItemSeq = 0;
+
+    function newImportItemId() {
+      importItemSeq += 1;
+      return 'import-' + importItemSeq;
+    }
+
+    function updateImportItem(itemId, patch) {
+      var report = state.importReport;
+      if (!report || !itemId) return;
+      var items = report.items.map(function (item) {
+        return item.itemId === itemId ? Object.assign({}, item, patch) : item;
+      });
+      set({ importReport: Object.assign({}, report, { items: items }) });
+    }
+
+    function newImportItem(file) {
+      return {
+        itemId: newImportItemId(),
+        name: file.name,
+        file: file,
+        encodable: !/\.epub$/i.test(file.name || ''),
+        ok: false,
+        busy: false,
+        percent: 0,
+        error: '',
+      };
+    }
+
+    async function addImportedBook(file, decoded) {
+      var id = newId();
+      var meta = {
+        id: id,
+        alias: core.uniqueAlias(core.stripExtension(file.name), state.books),
+        sourceName: file.name,
+        encoding: decoded.encoding,
+        encodingKind: decoded.encodingKind || '',
+        format: decoded.format || 'txt',
+        chapterCount: decoded.chapterCount || 0,
+        uncertain: decoded.uncertain === true,
+        charCount: decoded.text.length,
+        bytes: file.size,
+        importedAt: new Date().toISOString(),
+      };
+      await idbPut(Object.assign({}, meta, { text: decoded.text }));
+      var books = state.books.concat([meta]);
+      if (!saveLibrary(books)) {
+        try { await idbDelete(id); } catch (cleanupError) { /* best effort */ }
+        throw new Error(tr('library.storageError'));
+      }
+      set({ books: books });
+      return meta;
+    }
+
+    /** Re-decode an imported book in place, keeping its id, title and progress. */
+    async function replaceBookText(bookId, decoded) {
+      var existing = state.books.filter(function (book) { return book.id === bookId; })[0];
+      if (!existing) throw new Error(tr('library.missingCopy'));
+      var patch = {
+        encoding: decoded.encoding,
+        format: decoded.format || existing.format || 'txt',
+        chapterCount: decoded.chapterCount || 0,
+        uncertain: decoded.uncertain === true,
+        charCount: decoded.text.length,
+      };
+      var books = state.books.map(function (book) {
+        return book.id === bookId ? Object.assign({}, book, patch) : book;
+      });
+      var updated = books.filter(function (book) { return book.id === bookId; })[0] || existing;
+      await idbPut(Object.assign({}, updated, { text: decoded.text }));
+      if (!saveLibrary(books)) throw new Error(tr('library.storageError'));
+      var next = { books: books };
+      var reading = state.active && state.active.id === bookId;
+      if (reading) {
+        next.active = Object.assign({}, state.active, patch, { text: decoded.text });
+        next.cursor = Math.max(0, Math.min(state.cursor, Math.max(0, decoded.text.length - 1)));
+        next.history = [];
+        next.highlight = null;
+        visiblePage = null;
+        searchMatchCache = null;
+      }
+      set(next);
+      if (reading) saveProgress();
+      return updated;
+    }
+
+    async function importFiles(files) {
       var list = Array.from(files || []);
-      if (!list.length) return { ok: true, imported: 0 };
-      var forcedEncoding = options && options.encoding && options.encoding !== 'auto' ? options.encoding : undefined;
-      var imported = [];
-      var failures = [];
-      var reportItems = [];
-      set({ importReport: null, error: null });
-      for (var i = 0; i < list.length; i++) {
-        var file = list[i];
+      if (!list.length) return { ok: true, imported: 0, failed: 0 };
+      var items = list.map(newImportItem);
+      var imported = 0;
+      set({
+        importReport: { reportId: 'report-' + Date.now(), items: items },
+        error: null,
+      });
+      for (var i = 0; i < items.length; i++) {
+        var item = items[i];
+        updateImportItem(item.itemId, { busy: true, percent: 0 });
         set({
           importing: {
-            name: file.name,
+            name: item.name,
             index: i + 1,
-            total: list.length,
+            total: items.length,
             phase: 'reading',
             percent: 0,
           },
         });
         try {
-          var decoded = await readImportFile(file, function (fraction) {
+          var decoded = await readImportFile(item.file, function (fraction) {
+            updateImportItem(item.itemId, { busy: true, percent: Math.round(fraction * 100) });
             set({
               importing: {
-                name: file.name,
+                name: item.name,
                 index: i + 1,
-                total: list.length,
+                total: items.length,
                 phase: 'reading',
                 percent: Math.round(fraction * 100),
               },
             });
-          }, forcedEncoding);
-          var id = newId();
-          var meta = {
-            id: id,
-            alias: core.uniqueAlias(core.stripExtension(file.name), state.books),
-            sourceName: file.name,
-            encoding: decoded.encoding,
-            format: decoded.format || 'txt',
-            chapterCount: decoded.chapterCount || 0,
-            uncertain: decoded.uncertain,
-            charCount: decoded.text.length,
-            bytes: file.size,
-            importedAt: new Date().toISOString(),
-          };
-          var record = Object.assign({}, meta, { text: decoded.text });
-          await idbPut(record);
-          var books = state.books.concat([meta]);
-          if (!saveLibrary(books)) {
-            try { await idbDelete(id); } catch (cleanupError) { /* best effort */ }
-            throw new Error(tr('library.storageError'));
-          }
-          set({ books: books, importing: Object.assign({}, state.importing, { phase: 'saving', percent: 100 }) });
-          imported.push(meta);
-          reportItems.push({ ok: true, name: file.name, alias: meta.alias, encoding: meta.encoding });
-        } catch (error) {
-          var message = error && error.message ? error.message : String(error);
-          failures.push({
-            name: file.name,
-            message: message,
-            file: file,
           });
-          reportItems.push({ ok: false, name: file.name, error: message, file: file });
+          var meta = await addImportedBook(item.file, decoded);
+          imported += 1;
+          updateImportItem(item.itemId, {
+            busy: false,
+            percent: undefined,
+            ok: true,
+            bookId: meta.id,
+            alias: meta.alias,
+            encoding: meta.encoding,
+            encodingKind: meta.encodingKind,
+            uncertain: meta.uncertain === true,
+            encodable: meta.format !== 'epub',
+            error: '',
+          });
+        } catch (error) {
+          updateImportItem(item.itemId, {
+            busy: false,
+            percent: undefined,
+            ok: false,
+            error: error && error.message ? error.message : String(error),
+          });
         }
       }
-      set({
-        importing: null,
-        importReport: {
-          items: reportItems,
-          imported: imported.length,
-          failed: failures.length,
-          encoding: forcedEncoding || 'auto',
-        },
-      });
-      if (!imported.length && failures.length) {
-        flash(tr('library.importAllFailed', {
-          count: failures.length,
-          message: failures[0].message,
-        }), 'error');
-      } else if (imported.length) {
-        flash(
-          failures.length > 0
-            ? tr('library.importDoneSome', { count: imported.length, failed: failures.length })
-            : tr('library.importDone', { count: imported.length }),
-          failures.length > 0 ? 'warn' : 'success',
-        );
+      set({ importing: null });
+      return { ok: imported === items.length, imported: imported, failed: items.length - imported };
+    }
+
+    /**
+     * Read one import dialog row again with an explicit encoding.  A row that
+     * already produced a book is re-decoded in place; a row that failed before
+     * creates the book now.
+     */
+    async function retryImportItem(itemId, encoding) {
+      var report = state.importReport;
+      if (!report) return { ok: false };
+      var item = null;
+      for (var i = 0; i < report.items.length; i++) {
+        if (report.items[i].itemId === itemId) { item = report.items[i]; break; }
       }
-      return { ok: failures.length === 0, imported: imported.length, failed: failures.length };
+      if (!item || !item.file || item.busy) return { ok: false };
+      var forced = encoding && encoding !== 'auto' ? encoding : undefined;
+      updateImportItem(itemId, { busy: true, percent: 0, error: '' });
+      try {
+        var decoded = await readImportFile(item.file, function (fraction) {
+          updateImportItem(itemId, { busy: true, percent: Math.round(fraction * 100) });
+        }, forced);
+        if (item.bookId) {
+          var updated = await replaceBookText(item.bookId, decoded);
+          updateImportItem(itemId, {
+            busy: false,
+            percent: undefined,
+            ok: true,
+            redecoded: true,
+            alias: updated.alias,
+            encoding: decoded.encoding,
+            encodingKind: decoded.encodingKind || '',
+            uncertain: decoded.uncertain === true,
+            encodable: (decoded.format || 'txt') !== 'epub',
+            error: '',
+          });
+        } else {
+          var meta = await addImportedBook(item.file, decoded);
+          updateImportItem(itemId, {
+            busy: false,
+            percent: undefined,
+            ok: true,
+            bookId: meta.id,
+            alias: meta.alias,
+            encoding: meta.encoding,
+            encodingKind: meta.encodingKind,
+            uncertain: meta.uncertain === true,
+            encodable: meta.format !== 'epub',
+            error: '',
+          });
+        }
+        return { ok: true };
+      } catch (error) {
+        var message = error && error.message ? error.message : String(error);
+        // A failed re-decode must not hide a book that already exists, so the
+        // row keeps its original result and shows this attempt's error.
+        updateImportItem(itemId, { busy: false, percent: undefined, error: message });
+        return { ok: false, message: message };
+      }
     }
 
     function dispose() {
@@ -2220,6 +2358,7 @@
       assignShortcut: assignShortcut,
       resetShortcuts: resetShortcuts,
       importFiles: importFiles,
+      retryImportItem: retryImportItem,
       dismissImportReport: dismissImportReport,
       flash: flash,
     };
@@ -2547,6 +2686,7 @@
       cursor: pointer;
     }
     .sr-close-btn:hover { background: var(--dsw-alias-bg-layer-2); color: var(--dsw-alias-label-primary); }
+    .sr-close-btn:disabled { opacity: .4; cursor: default; background: transparent; color: var(--dsw-alias-label-secondary); }
     .sr-tabs {
       display: flex;
       gap: 4px;
@@ -2589,50 +2729,149 @@
       border-radius: 8px;
       background: var(--dsw-alias-bg-layer-2);
     }
-    .sr-import-report {
-      margin: 0 0 10px;
-      padding: 10px;
+    .sr-report-layer {
+      position: fixed;
+      inset: 0;
+      z-index: 95;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      box-sizing: border-box;
+      background: rgba(0, 0, 0, .38);
+    }
+    .sr-report-card {
+      box-sizing: border-box;
+      display: flex;
+      flex-direction: column;
+      width: min(620px, calc(100vw - 32px));
+      max-height: min(70vh, 520px);
+      overflow: hidden;
+      border: 1px solid var(--dsw-alias-border-l1);
+      border-radius: 12px;
+      background: var(--dsw-alias-bg-overlay);
+      color: var(--dsw-alias-label-primary);
+      box-shadow: 0 18px 60px rgba(0, 0, 0, .38);
+      outline: none;
+    }
+    .sr-report-head {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 14px 12px 10px 16px;
+    }
+    .sr-report-head-main {
+      display: flex;
+      flex: 1 1 auto;
+      flex-direction: column;
+      gap: 3px;
+      min-width: 0;
+    }
+    .sr-report-title {
+      margin: 0;
+      font-size: 15px;
+      font-weight: 600;
+      line-height: 22px;
+    }
+    .sr-report-sub {
+      color: var(--dsw-alias-label-secondary);
+      font-size: 11px;
+      line-height: 16px;
+      overflow-wrap: anywhere;
+    }
+    .sr-report-progress {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      margin: 0 16px 8px;
+      padding: 7px 9px;
+      border: 1px solid var(--dsw-alias-border-l1);
+      border-radius: 7px;
+      background: var(--dsw-alias-bg-layer-1);
+      color: var(--dsw-alias-label-secondary);
+      font-size: 11px;
+      line-height: 15px;
+    }
+    .sr-report-list {
+      display: flex;
+      flex: 1 1 auto;
+      flex-direction: column;
+      gap: 6px;
+      min-height: 0;
+      margin: 0;
+      padding: 2px 16px 12px;
+      overflow: auto;
+      list-style: none;
+    }
+    .sr-report-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      padding: 7px 9px;
       border: 1px solid var(--dsw-alias-border-l1);
       border-radius: 8px;
       background: var(--dsw-alias-bg-layer-1);
     }
-    .sr-import-report-head {
+    .sr-report-row-main {
       display: flex;
-      align-items: center;
-      gap: 8px;
-      flex-wrap: wrap;
-      margin-bottom: 7px;
-    }
-    .sr-import-report-list {
-      display: flex;
+      flex: 1 1 220px;
       flex-direction: column;
-      gap: 3px;
-      max-height: 150px;
-      overflow: auto;
-      margin: 0;
-      padding: 0;
-      list-style: none;
+      gap: 2px;
+      min-width: 0;
     }
-    .sr-import-report-item {
-      display: flex;
-      flex-direction: column;
-      gap: 1px;
-      padding: 5px 7px;
-      border-radius: 5px;
-      background: var(--dsw-alias-bg-layer-2);
+    .sr-report-name {
+      font-size: 12px;
+      font-weight: 600;
+      line-height: 17px;
+      overflow-wrap: anywhere;
+    }
+    .sr-report-state {
+      color: var(--dsw-alias-label-secondary);
       font-size: 11px;
-      line-height: 1.45;
+      line-height: 16px;
+      overflow-wrap: anywhere;
     }
-    .sr-import-report-item strong { font-weight: 600; overflow-wrap: anywhere; }
-    .sr-import-report-item span { color: var(--dsw-alias-label-secondary); overflow-wrap: anywhere; }
-    .sr-import-report-item[data-ok] span { color: var(--dsw-alias-state-success-primary); }
-    .sr-import-report-item:not([data-ok]) span { color: var(--dsw-alias-state-error-primary); }
-    .sr-import-report-retry {
+    .sr-report-row[data-ok] .sr-report-state { color: var(--dsw-alias-state-success-primary); }
+    .sr-report-row[data-failed] .sr-report-state { color: var(--dsw-alias-state-error-primary); }
+    .sr-report-warn {
+      color: var(--dsw-alias-state-warn-primary);
+      font-size: 11px;
+      line-height: 16px;
+      overflow-wrap: anywhere;
+    }
+    .sr-report-error {
+      color: var(--dsw-alias-state-error-primary);
+      font-size: 11px;
+      line-height: 16px;
+      overflow-wrap: anywhere;
+    }
+    .sr-report-actions {
+      display: flex;
+      flex: none;
+      align-items: center;
+      gap: 6px;
+      margin-left: auto;
+    }
+    .sr-report-actions .sr-select {
+      height: 26px;
+      font-size: 11px;
+    }
+    .sr-report-actions .sr-select:disabled { opacity: .55; cursor: default; }
+    .sr-report-foot {
       display: flex;
       align-items: center;
-      gap: 8px;
-      flex-wrap: wrap;
-      margin-top: 8px;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 10px 16px;
+      border-top: 1px solid var(--dsw-alias-border-l1);
+    }
+    .sr-report-foot-hint {
+      flex: 1 1 auto;
+      min-width: 0;
+      color: var(--dsw-alias-label-secondary);
+      font-size: 11px;
+      line-height: 15px;
     }
     .sr-library-filter {
       display: flex;
@@ -3665,6 +3904,168 @@
             }, busy ? (props.busyLabel || props.confirmLabel || '') : (props.confirmLabel || '')))));
     }
 
+    /**
+     * Result of the last import.  Each row can pick its own encoding and be
+     * read again; rows that already produced a book are re-decoded in place so
+     * the reader keeps its id and title.
+     */
+    function ImportReportDialog(props) {
+      var store = props.store;
+      var locale = props.locale;
+      var t = useT(locale);
+      var state = useStore(store);
+      var choiceState = React.useState({});
+      var choices = choiceState[0];
+      var setChoices = choiceState[1];
+      var cardRef = React.useRef(null);
+      var report = state.importReport;
+      var importing = state.importing;
+      var reportId = report ? report.reportId : null;
+
+      React.useEffect(function () {
+        if (!reportId) return undefined;
+        var timer = window.setTimeout(function () {
+          if (cardRef.current) cardRef.current.focus();
+        }, 0);
+        var onKey = function (event) {
+          if (event.key !== 'Escape') return;
+          event.preventDefault();
+          event.stopPropagation();
+          // The dialog doubles as the progress view, so it stays until the
+          // batch finishes.
+          if (store.getSnapshot().importing) return;
+          store.dismissImportReport();
+        };
+        window.addEventListener('keydown', onKey, true);
+        return function () {
+          window.clearTimeout(timer);
+          window.removeEventListener('keydown', onKey, true);
+        };
+      }, [reportId, store]);
+
+      if (!report) return null;
+
+      var items = report.items || [];
+      var busyImport = !!importing;
+      var okCount = items.filter(function (item) { return item.ok; }).length;
+      var failedCount = items.length - okCount;
+      var summary = okCount === items.length
+        ? t('library.importDone', { count: okCount })
+        : okCount === 0
+          ? t('library.importReportSummaryFail', { count: failedCount })
+          : t('library.importDoneSome', { count: okCount, failed: failedCount });
+
+      function choiceFor(item) {
+        if (Object.prototype.hasOwnProperty.call(choices, item.itemId)) return choices[item.itemId];
+        if (!item.ok) return 'auto';
+        return item.encodingKind || 'auto';
+      }
+
+      function dismissReport() {
+        if (busyImport) return;
+        store.dismissImportReport();
+      }
+
+      function chooseEncoding(itemId, value) {
+        setChoices(function (current) {
+          var next = Object.assign({}, current);
+          next[itemId] = value;
+          return next;
+        });
+      }
+
+      function renderRow(item) {
+        var busy = item.busy === true;
+        var locked = busy || busyImport;
+        var status = null;
+        if (busy) {
+          status = h('span', { className: 'sr-report-state' }, t('library.importBusy', { percent: item.percent || 0 }));
+        } else if (item.ok) {
+          status = h('span', { className: 'sr-report-state' }, t(item.redecoded ? 'library.redecodedAs' : 'library.importedAs', {
+            alias: item.alias,
+            encoding: item.encoding,
+          }));
+        } else if (!item.error) {
+          status = h('span', { className: 'sr-report-state' }, t('library.importPending'));
+        }
+        var value = choiceFor(item);
+        return h('li', {
+          key: item.itemId,
+          className: 'sr-report-row',
+          'data-ok': item.ok ? '' : undefined,
+          'data-failed': (!item.ok && item.error) ? '' : undefined,
+        },
+          h('div', { className: 'sr-report-row-main' },
+            h('span', { className: 'sr-report-name', title: item.name }, item.name),
+            status,
+            item.error ? h('span', { className: 'sr-report-error' }, item.error) : null,
+            item.ok && item.uncertain ? h('span', { className: 'sr-report-warn' }, t('library.importUncertain')) : null),
+          item.encodable ? h('div', { className: 'sr-report-actions' },
+            h('select', {
+              className: 'sr-select',
+              value: value,
+              'aria-label': t('library.encodingLabel'),
+              title: t('library.encodingLabel'),
+              disabled: locked,
+              onChange: function (event) { chooseEncoding(item.itemId, event.target.value); },
+            }, ENCODING_OPTIONS.map(function (option) {
+              return h('option', { value: option, key: option },
+                option === 'auto' ? t('library.encodingAuto') : encodingName(option));
+            })),
+            h('button', {
+              type: 'button',
+              className: 'sr-ghost-btn',
+              disabled: locked || !item.file,
+              onClick: function () { void store.retryImportItem(item.itemId, value); },
+            }, busy
+              ? t('library.importBusy', { percent: item.percent || 0 })
+              : item.ok ? t('library.redecode') : t('library.retryImport'))
+          ) : null);
+      }
+
+      return h('div', {
+        className: 'sr-report-layer',
+        'data-sr-report': '',
+        role: 'presentation',
+        onMouseDown: function (event) {
+          if (event.target === event.currentTarget) dismissReport();
+        },
+      },
+        h('section', {
+          ref: cardRef,
+          className: 'sr-report-card',
+          role: 'dialog',
+          'aria-modal': 'true',
+          'aria-labelledby': 'sr-report-title',
+          tabIndex: -1,
+          onMouseDown: function (event) { event.stopPropagation(); },
+        },
+          h('div', { className: 'sr-report-head' },
+            h('div', { className: 'sr-report-head-main' },
+              h('h2', { className: 'sr-report-title', id: 'sr-report-title' }, t('library.importReportTitle')),
+              h('span', { className: 'sr-report-sub' }, summary)),
+            h('button', {
+              type: 'button',
+              className: 'sr-close-btn',
+              'aria-label': t('library.dismiss'),
+              title: t('library.dismiss'),
+              disabled: busyImport,
+              onClick: dismissReport,
+            }, h(CloseIcon))),
+          importing ? h('div', { className: 'sr-report-progress' },
+            h('span', null, t('library.importing', { name: importing.name, index: importing.index, total: importing.total })),
+            h('div', { className: 'sr-progress' }, h('span', { style: { width: (importing.percent || 0) + '%' } }))) : null,
+          h('ul', { className: 'sr-report-list' }, items.map(renderRow)),
+          h('div', { className: 'sr-report-foot' },
+            h('span', { className: 'sr-report-foot-hint' }, t('library.importReportHint')),
+            h('button', {
+              type: 'button',
+              className: 'sr-primary-btn',
+              disabled: busyImport,
+              onClick: dismissReport,
+            }, t('library.dismiss')))));
+    }
+
     function LibraryPanel(props) {
       var store = props.store;
       var locale = props.locale;
@@ -3691,9 +4092,6 @@
       var sortState = React.useState('recent');
       var sortMode = sortState[0];
       var setSortMode = sortState[1];
-      var importEncodingState = React.useState('auto');
-      var importEncoding = importEncodingState[0];
-      var setImportEncoding = importEncodingState[1];
       var tabStyle = {
         display: 'inline-flex',
         alignItems: 'center',
@@ -3708,19 +4106,8 @@
 
       function chooseFiles(event) {
         var files = event.target.files;
-        if (files && files.length) void store.importFiles(files, { encoding: importEncoding });
+        if (files && files.length) void store.importFiles(files);
         event.target.value = '';
-      }
-
-      function encodingLabel(value) {
-        return value === 'auto' ? t('library.encodingAuto') : value.toUpperCase();
-      }
-
-      function retryFailedImports() {
-        var report = state.importReport;
-        if (!report) return;
-        var files = report.items.filter(function (item) { return !item.ok && item.file; }).map(function (item) { return item.file; });
-        if (files.length) void store.importFiles(files, { encoding: importEncoding });
       }
 
       function switchTab(next) {
@@ -3795,15 +4182,11 @@
         event.preventDefault();
         if (state.importing || selecting) return;
         var files = event.dataTransfer && event.dataTransfer.files;
-        if (files && files.length) void store.importFiles(files, { encoding: importEncoding });
+        if (files && files.length) void store.importFiles(files);
       }
 
       var books = state.books;
       var importing = state.importing;
-      var importReport = state.importReport;
-      var failedImportFiles = importReport
-        ? importReport.items.filter(function (item) { return !item.ok && item.file; })
-        : [];
       var normalizedQuery = query.trim().toLowerCase();
       var filteredBooks = books.filter(function (book) {
         if (!normalizedQuery) return true;
@@ -3936,15 +4319,6 @@
             style: { display: 'none' },
             onChange: chooseFiles,
           }),
-          h('select', {
-            className: 'sr-select',
-            value: importEncoding,
-            'aria-label': t('library.encodingLabel'),
-            title: t('library.encodingLabel'),
-            onChange: function (event) { setImportEncoding(event.target.value); },
-          }, ENCODING_OPTIONS.map(function (value) {
-            return h('option', { value: value, key: value }, encodingLabel(value));
-          })),
           h('button', {
             type: 'button',
             className: 'sr-ghost-btn',
@@ -3973,25 +4347,6 @@
             h('option', { value: 'imported' }, t('library.sortImported')),
             h('option', { value: 'name' }, t('library.sortName'))),
           h('span', { className: 'sr-field-hint' }, t('library.showing', { shown: visibleBooks.length, total: books.length }))),
-        importReport ? h('div', { className: 'sr-import-report' },
-          h('div', { className: 'sr-import-report-head' },
-            h('strong', null, t('library.importReportTitle')),
-            h('span', { className: 'sr-field-hint' }, t('library.importReportSummary', { imported: importReport.imported, failed: importReport.failed })),
-            h('button', { type: 'button', className: 'sr-ghost-btn', onClick: function () { store.dismissImportReport(); } }, t('library.dismiss'))),
-          h('ul', { className: 'sr-import-report-list' }, importReport.items.map(function (item, index) {
-            return h('li', {
-              key: item.name + '-' + index,
-              className: 'sr-import-report-item',
-              'data-ok': item.ok ? '' : undefined,
-            },
-              h('strong', null, item.name),
-              h('span', null, item.ok
-                ? t('library.importedAs', { alias: item.alias, encoding: item.encoding })
-                : item.error));
-          })),
-          failedImportFiles.length ? h('div', { className: 'sr-import-report-retry' },
-            h('span', { className: 'sr-field-hint' }, t('library.retryHint', { encoding: encodingLabel(importEncoding) })),
-            h('button', { type: 'button', className: 'sr-ghost-btn', onClick: retryFailedImports }, t('library.retryFailed', { count: failedImportFiles.length }))) : null) : null,
         selecting ? h('div', { className: 'sr-batch-bar' },
           h('label', { className: 'sr-check' },
             h('input', {
@@ -4101,7 +4456,7 @@
         if (!state.libraryOpen) return undefined;
         var onKey = function (event) {
           if (event.key === 'Escape') {
-            if (document.querySelector('[data-sr-confirm]')) return;
+            if (document.querySelector('[data-sr-confirm]') || document.querySelector('[data-sr-report]')) return;
             event.preventDefault();
             event.stopPropagation();
             store.closeLibrary();
@@ -4117,11 +4472,12 @@
         };
       }, [state.libraryOpen, store]);
 
-      if (!state.libraryOpen) return null;
+      var reportOpen = !!state.importReport;
+      if (!state.libraryOpen && !reportOpen) return null;
 
       return h(Fragment, null,
         h('style', null, LIBRARY_CSS),
-        h('div', {
+        state.libraryOpen ? h('div', {
           className: 'sr-overlay',
           onMouseDown: function (event) {
             if (event.target === event.currentTarget) store.closeLibrary();
@@ -4135,7 +4491,8 @@
             'aria-label': t('library.title'),
             tabIndex: -1,
           },
-            h(LibraryPanel, { store: store, locale: locale, embedded: false }))));
+            h(LibraryPanel, { store: store, locale: locale, embedded: false }))) : null,
+        h(ImportReportDialog, { store: store, locale: locale }));
     }
 
     function LibraryButton(props) {

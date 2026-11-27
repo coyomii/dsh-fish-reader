@@ -86,7 +86,9 @@
 - 多个章节用换行连接，进入同一套分页、搜索、百分比和续读逻辑。
 - 导入时整本 EPUB 读入内存后解压；超大 EPUB 受浏览器内存限制。
 - 只有 IndexedDB 正文写入和 localStorage 书库元数据都成功才计入“已导入”；元数据写入失败会删掉刚写入的副本并报失败。
-- 全部文件失败时显示错误汇总，不再显示“已导入 N 本”；TXT 还会用 `isReadableText()` 拒绝二进制/严重误码内容。
+- 导入过程与结果放在同一个弹窗里：批量进度条在弹窗内，逐本显示“等待导入 / 读取中 / 已导入 / 失败”；弹窗在批量结束前不能关闭。
+- 弹窗内每本 TXT 都能单独选编码：失败项点“重试”重新导入；已成功导入的条目点“重新解码”会用同一份文件重新解码并**原地替换**正文，保留 `id`、书名和阅读进度（进度按新正文长度截断，历史记录清空）。因此编码选择只在真正需要时出现，不再占用书库工具栏。
+- TXT 还会用 `isReadableText()` 拒绝二进制/严重误码内容，失败信息会带上本次尝试的编码（例如“无法按 GB18030 解码”）。
 
 ### 固定按钮位置
 
@@ -109,7 +111,7 @@
 
 ### 存储
 
-- IndexedDB `dsh-fish-reader` / `books`：每本书 `{ id, alias, sourceName, encoding, charCount, bytes, importedAt, text }`。
+- IndexedDB `dsh-fish-reader` / `books`：每本书 `{ id, alias, sourceName, encoding, encodingKind, format, uncertain, charCount, bytes, importedAt, text }`。
 - localStorage：设置、书库元数据、每本书 `{cursor, history, percent, updatedAt}`、最近书 id。
 - 删除只删 IndexedDB 副本、元数据和进度；原始文件从未被读取回写或移动。
 - 没有 Host 服务、工具、网络请求或会话写入。
@@ -201,7 +203,7 @@ node --test dsh-fish-reader/test/core.test.mjs
 - **桌面窗口缩窄的逐项复测**：自动化浏览器使用 `Emulation.setDeviceMetricsOverride` 做了多宽度连续翻页；桌面窗口未单独逐项复测。
 - **桌面完整进程重启**：自动化做了页面重载续读；桌面进程未关闭重开验证。存储实现相同（IndexedDB/localStorage），但这一条仍属于自动化覆盖。
 - **桌面搜索提交**：旧版桌面端确认过点击正文打开输入框；新版 Alt+F/图标的搜索提交与跳转只在旧搜索逻辑上验证过，未做新版浮层实测。
-- **编码误判**：GB18030/Big5 依赖启发式；极短/生僻文本可能误判，当前无手动编码选择。
+- **编码误判**：GB18030/Big5 依赖启发式；极短/生僻文本可能误判。手动改编码的入口在导入结果弹窗里（按文件重新解码），弹窗关闭后如需改编码，需要重新导入该文件。
 - **跨客户端同步**：DSH Desktop 与同一 Host 的其他浏览器/远程页面各自使用自己的 IndexedDB/localStorage，不同步。
 - **超大文件**：分块导入，但整本正文最终以单个字符串保存，数百 MB 会受浏览器内存限制。
 

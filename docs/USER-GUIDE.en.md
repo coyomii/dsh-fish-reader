@@ -107,8 +107,6 @@ The library **Settings** page controls:
 - Deleting a library entry removes only the imported copy and progress, never the original file.
 - Different browser profiles do not share a library.
 
-If you previously installed the old Shadow Reader, its library and progress are migrated automatically on first start.
-
 ## FAQ
 
 ### The novel disappeared after I clicked the composer

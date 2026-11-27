@@ -1,6 +1,7 @@
 node_modules/
 coverage/
 *.log
+.npmrc
 .DS_Store
 Thumbs.db
 .idea/

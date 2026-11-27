@@ -14,20 +14,37 @@ GitHub 仓库：
 https://github.com/coyomii/dsh-fish-reader
 ```
 
+npm：
+
+```text
+https://www.npmjs.com/package/dsh-fish-reader
+```
+
 ```powershell
 git clone https://github.com/coyomii/dsh-fish-reader.git
 ```
 
 ## 安装方法
 
-### 方式一：Plugin Manager 安装本地目录
+### 方式一：npm 安装
+
+在 DSH Agent 中执行：
+
+```text
+plugin_manager install_bundle
+target: dsh-fish-reader@1.2.0
+```
+
+或在支持包名安装的 Plugins 入口填入 `dsh-fish-reader@1.2.0`。
+
+### 方式二：Plugin Manager 安装本地目录
 
 1. 打开 DSH 的 **插件 / Plugins** 页面。
 2. 选择 **添加插件 / Add plugin**。
 3. 选择克隆下来的 `dsh-fish-reader` 目录（包含 `package.json` 和 `cordis.patch.yml`）。
 4. 安装完成后刷新页面；如果桌面窗口没有出现左侧栏书本图标，按一次 `Ctrl+R` 重新加载渲染端。
 
-### 方式二：让 DSH Agent 安装
+### 方式三：让 DSH Agent 安装本地目录
 
 把克隆后的插件目录绝对路径交给支持 Plugin Manager 的 DSH Agent，执行：
 

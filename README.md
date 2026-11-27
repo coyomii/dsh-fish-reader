@@ -36,10 +36,10 @@ git clone https://github.com/coyomii/dsh-fish-reader.git
 
 ```text
 plugin_manager install_bundle
-target: dsh-fish-reader@1.2.2
+target: dsh-fish-reader@1.2.3
 ```
 
-或在支持包名安装的 Plugins 入口填入 `dsh-fish-reader@1.2.2`。
+或在支持包名安装的 Plugins 入口填入 `dsh-fish-reader@1.2.3`。
 
 ### 方式二：Plugin Manager 安装本地目录
 

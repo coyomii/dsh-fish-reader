@@ -36,15 +36,15 @@ git clone https://github.com/coyomii/dsh-fish-reader.git
 
 ```text
 plugin_manager install_bundle
-target: dsh-fish-reader@1.2.3
+target: dsh-fish-reader@1.3.0
 ```
 
-或在支持包名安装的 Plugins 入口填入 `dsh-fish-reader@1.2.3`。
+或在支持包名安装的 Plugins 入口填入 `dsh-fish-reader@1.3.0`。
 
 也可以直接用 DSH CLI：
 
 ```powershell
-dsh plugin --profile desktop add dsh-fish-reader@1.2.3
+dsh plugin --profile desktop add dsh-fish-reader@1.3.0
 ```
 
 `--profile` 按你的实际 profile 名称调整（常见为 `desktop` 或 `web`）。

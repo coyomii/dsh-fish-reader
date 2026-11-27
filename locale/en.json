@@ -2,6 +2,6 @@
   "meta": {
     "title": "DSH Fish Reader",
     "description": "A quiet local TXT/EPUB reader tucked into the composer placeholder, with resume, boss key, search, regex and percent jump.",
-    "detail": "docs/DETAIL.md"
+    "detail": "docs/USER-GUIDE.en.md"
   }
 }

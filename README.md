@@ -32,10 +32,10 @@ git clone https://github.com/coyomii/dsh-fish-reader.git
 
 ```text
 plugin_manager install_bundle
-target: dsh-fish-reader@1.2.0
+target: dsh-fish-reader@1.2.1
 ```
 
-或在支持包名安装的 Plugins 入口填入 `dsh-fish-reader@1.2.0`。
+或在支持包名安装的 Plugins 入口填入 `dsh-fish-reader@1.2.1`。
 
 ### 方式二：Plugin Manager 安装本地目录
 
@@ -135,5 +135,7 @@ target: <你的路径>\dsh-fish-reader
 ```powershell
 node --test dsh-fish-reader/test/core.test.mjs
 ```
+
+普通用户使用说明见 [docs/USER-GUIDE.md](docs/USER-GUIDE.md)（英文见 [docs/USER-GUIDE.en.md](docs/USER-GUIDE.en.md)）。
 
 详细实现与实测记录见 [docs/DETAIL.md](docs/DETAIL.md)。

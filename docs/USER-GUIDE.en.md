@@ -4,6 +4,10 @@ DSH Fish Reader is a local TXT / EPUB reader for DeepSeek Harness. It shows a no
 
 Books and progress stay on your machine. Reading never sends a chat message or calls a model.
 
+![DSH Fish Reader example](images/reader-example.png)
+
+The text appears in the composer placeholder, with the page controls beside **Full access** and progress/search on the right.
+
 ## Features
 
 - Import local TXT / EPUB novels.

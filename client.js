@@ -1608,10 +1608,12 @@
       clearNoticeTimer();
       var id = Date.now() + ':' + Math.random();
       set({ notice: { id: id, text: text, tone: tone || 'info' } });
+      // Longer messages need longer to read; keep a 2.6s floor and a 6s cap.
+      var duration = Math.min(6000, 2600 + String(text || '').length * 70);
       noticeTimer = window.setTimeout(function () {
         noticeTimer = null;
         if (state.notice && state.notice.id === id) set({ notice: null });
-      }, 2600);
+      }, duration);
     }
 
     function saveLibrary(books) {
@@ -3148,19 +3150,28 @@
     }
     .sr-notice {
       display: flex;
-      align-items: center;
+      align-items: flex-start;
       gap: 8px;
       margin: 10px 0 0;
-      padding: 7px 9px;
+      padding: 9px 11px;
+      border: 1px solid var(--dsw-alias-border-l1);
+      border-left: 3px solid var(--dsw-alias-brand-primary);
       border-radius: 7px;
-      background: var(--dsw-alias-bg-layer-1);
-      color: var(--dsw-alias-label-secondary);
-      font-size: 11px;
-      line-height: 16px;
+      background: var(--dsw-alias-bg-layer-2);
+      color: var(--dsw-alias-label-primary);
+      font-size: 12px;
+      line-height: 17px;
+      font-weight: 500;
+      animation: sr-notice-in .16s ease-out;
     }
-    .sr-notice[data-tone='success'] { color: var(--dsw-alias-state-success-primary); }
-    .sr-notice[data-tone='warn'] { color: var(--dsw-alias-state-warn-primary); }
-    .sr-notice[data-tone='error'] { color: var(--dsw-alias-state-error-primary); }
+    @keyframes sr-notice-in {
+      from { opacity: 0; transform: translateY(4px); }
+      to { opacity: 1; transform: none; }
+    }
+    .sr-notice[data-tone='success'] { border-left-color: var(--dsw-alias-state-success-primary); }
+    .sr-notice[data-tone='warn'] { border-left-color: var(--dsw-alias-state-warn-primary); }
+    .sr-notice[data-tone='error'] { border-left-color: var(--dsw-alias-state-error-primary); }
+    .sr-notice-slot { padding: 0 16px 14px; }
     .sr-settings { display: flex; flex-direction: column; gap: 14px; }
     .sr-field { display: flex; flex-direction: column; gap: 4px; }
     .sr-shortcut-list {
@@ -4427,7 +4438,7 @@
           h('button', { type: 'button', className: 'sr-tab', style: tabStyle, 'data-active': tab === 'books' ? '' : undefined, onClick: function () { switchTab('books'); } }, t('library.tab.books')),
           h('button', { type: 'button', className: 'sr-tab', style: tabStyle, 'data-active': tab === 'settings' ? '' : undefined, onClick: function () { switchTab('settings'); } }, t('library.tab.settings'))),
         h('div', { className: 'sr-modal-body' }, tab === 'books' ? booksView : settings),
-        noticeView,
+        noticeView ? h('div', { className: 'sr-notice-slot' }, noticeView) : null,
         confirmDialog);
     }
 

@@ -3747,8 +3747,11 @@
               onToggle: toggleSelected,
               onRequestDelete: requestDeleteBook,
             });
-          })),
-        state.notice ? h('div', { className: 'sr-notice', 'data-tone': state.notice.tone || 'info', role: 'status' }, state.notice.text) : null);
+          })));
+
+      var noticeView = state.notice
+        ? h('div', { className: 'sr-notice', 'data-tone': state.notice.tone || 'info', role: 'status' }, state.notice.text)
+        : null;
 
       var confirmTitle = confirm
         ? (confirm.kind === 'batch' ? t('library.batchDeleteTitle') : t('library.deleteTitle'))
@@ -3780,6 +3783,7 @@
               h('button', { type: 'button', className: 'sr-tab', style: tabStyle, 'data-active': tab === 'books' ? '' : undefined, onClick: function () { switchTab('books'); } }, t('library.tab.books')),
               h('button', { type: 'button', className: 'sr-tab', style: tabStyle, 'data-active': tab === 'settings' ? '' : undefined, onClick: function () { switchTab('settings'); } }, t('library.tab.settings'))),
             tab === 'books' ? booksView : settings,
+            noticeView,
             confirmDialog));
       }
 
@@ -3793,6 +3797,7 @@
           h('button', { type: 'button', className: 'sr-tab', style: tabStyle, 'data-active': tab === 'books' ? '' : undefined, onClick: function () { switchTab('books'); } }, t('library.tab.books')),
           h('button', { type: 'button', className: 'sr-tab', style: tabStyle, 'data-active': tab === 'settings' ? '' : undefined, onClick: function () { switchTab('settings'); } }, t('library.tab.settings'))),
         h('div', { className: 'sr-modal-body' }, tab === 'books' ? booksView : settings),
+        noticeView,
         confirmDialog);
     }
 

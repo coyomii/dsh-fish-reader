@@ -2,6 +2,6 @@
   "meta": {
     "title": "DSH Fish Reader",
     "description": "藏在输入框待输入区的本地 TXT/EPUB 阅读器，支持续读、老板键、搜索、正则和百分比跳转。",
-    "detail": "docs/DETAIL.md"
+    "detail": "docs/USER-GUIDE.md"
   }
 }

@@ -2779,6 +2779,7 @@
       line-height: 16px;
     }
     .sr-book-progress { display: flex; align-items: center; gap: 7px; margin-top: 5px; }
+    .sr-book-progress .sr-progress { flex: 0 0 220px; width: 220px; max-width: 100%; }
     .sr-book-progress .sr-progress { flex: 1 1 auto; }
     .sr-book-progress > span {
       flex: none;

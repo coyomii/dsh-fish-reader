@@ -2433,7 +2433,7 @@
       display: flex;
       align-items: flex-start;
       justify-content: center;
-      padding: 24px;
+      padding: clamp(40px, 8vh, 80px) 24px 24px;
       box-sizing: border-box;
       background: rgba(0, 0, 0, .32);
       pointer-events: auto;

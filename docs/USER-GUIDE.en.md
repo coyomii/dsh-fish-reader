@@ -23,10 +23,17 @@ The text appears in the composer placeholder, with the page controls beside **Fu
 ## Quick start
 
 1. Click the book icon at the bottom of the left sidebar to open the **DSH Fish Reader library**.
-2. Click **Import TXT / EPUB** and choose one or more novels.
+2. Click **Batch import TXT / EPUB** and choose one or more novels, or drop multiple files into the library.
 3. Click **Open** or **Continue**.
 4. When the composer is empty, unfocused and the reader is not hidden, the novel appears in the composer placeholder.
 5. Click the composer to enter input mode; the novel hides and you can type normally.
+
+## Batch management
+
+- **Batch import**: click **Batch import TXT / EPUB** to select multiple files, or drag multiple TXT/EPUB files into the library.
+- **Batch delete**: click **Select**, check several books, then click **Delete selected** and confirm.
+- Deleting removes only the imported copies and reading progress; **original files are untouched**.
+- **Select all** selects every book in the library.
 
 ## Input mode and reading mode
 

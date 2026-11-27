@@ -937,7 +937,8 @@
     'library.close': 'Close',
     'library.tab.books': 'Books',
     'library.tab.settings': 'Settings',
-    'library.import': 'Import TXT / EPUB',
+    'library.import': 'Batch import TXT / EPUB',
+    'library.importHint': 'Select multiple files, or drop TXT/EPUB files here.',
     'library.importing': 'Importing {name} ({index}/{total})',
     'library.empty': 'The library is empty. Import a TXT or EPUB file to start reading.',
     'library.emptyHint': 'The original file is never modified or moved.',
@@ -949,6 +950,15 @@
     'library.deleteConfirm': 'Delete this library copy?',
     'library.deleteNote': 'Only the imported copy and its progress are removed. Your original file is untouched.',
     'library.confirm': 'Delete',
+    'library.batch': 'Select',
+    'library.batchCancel': 'Cancel selection',
+    'library.batchSelectAll': 'Select all',
+    'library.batchSelected': '{count} selected',
+    'library.batchDelete': 'Delete selected',
+    'library.batchConfirmNote': 'Delete {count} selected book(s)? Only imported copies and progress are removed.',
+    'library.batchConfirm': 'Delete',
+    'library.batchDeleteSomeFailed': 'Could not remove {count} book(s) from local storage.',
+    'notice.deletedMany': 'Deleted {count} book(s).',
     'library.cancel': 'Cancel',
     'library.save': 'Save',
     'library.original': 'Original',
@@ -1033,7 +1043,8 @@
     'library.close': '关闭',
     'library.tab.books': '书籍',
     'library.tab.settings': '设置',
-    'library.import': '导入 TXT / EPUB',
+    'library.import': '批量导入 TXT / EPUB',
+    'library.importHint': '可一次选择多个文件，也可以把 TXT/EPUB 拖到这里。',
     'library.importing': '正在导入 {name}（{index}/{total}）',
     'library.empty': '书库还是空的。导入一本 TXT 或 EPUB 开始阅读。',
     'library.emptyHint': '原始文件不会被修改或移动。',
@@ -1045,6 +1056,15 @@
     'library.deleteConfirm': '删除这个书库副本？',
     'library.deleteNote': '只会删除导入的副本和进度，原始文件保持不动。',
     'library.confirm': '删除',
+    'library.batch': '批量选择',
+    'library.batchCancel': '取消选择',
+    'library.batchSelectAll': '全选',
+    'library.batchSelected': '已选 {count} 本',
+    'library.batchDelete': '删除选中',
+    'library.batchConfirmNote': '确定删除选中的 {count} 本书？只删除导入副本和进度。',
+    'library.batchConfirm': '删除',
+    'library.batchDeleteSomeFailed': '{count} 本书删除失败。',
+    'notice.deletedMany': '已删除 {count} 本书。',
     'library.cancel': '取消',
     'library.save': '保存',
     'library.original': '原始文件',
@@ -1642,6 +1662,45 @@
       return { ok: true };
     }
 
+    async function deleteBooks(ids) {
+      var wanted = (Array.isArray(ids) ? ids : []).filter(function (id, index, list) {
+        return typeof id === 'string' && list.indexOf(id) === index;
+      });
+      if (!wanted.length) return { ok: false };
+      var deleted = [];
+      var failures = [];
+      for (var i = 0; i < wanted.length; i++) {
+        try {
+          await idbDelete(wanted[i]);
+          deleted.push(wanted[i]);
+        } catch (error) {
+          failures.push(error && error.message ? error.message : String(error));
+        }
+      }
+      if (!deleted.length) {
+        set({ error: failures[0] || tr('library.storageError') });
+        return { ok: false, failed: failures.length };
+      }
+      if (state.active && deleted.indexOf(state.active.id) >= 0) closeBook();
+      deleted.forEach(function (id) { delete progressMap[id]; });
+      writeJson(LS_PROGRESS, progressMap);
+      var books = state.books.filter(function (book) { return deleted.indexOf(book.id) < 0; });
+      var saved = saveLibrary(books);
+      var patch = { books: books };
+      if (state.lastBookId && deleted.indexOf(state.lastBookId) >= 0) {
+        writeJson(LS_LAST, null);
+        patch.lastBookId = null;
+      }
+      set(patch);
+      if (failures.length) {
+        set({ error: tr('library.batchDeleteSomeFailed', { count: failures.length }) });
+        return { ok: false, deleted: deleted.length, failed: failures.length };
+      }
+      if (!saved) return { ok: false, deleted: deleted.length, failed: 0 };
+      flash(tr('notice.deletedMany', { count: deleted.length }), 'info');
+      return { ok: true, deleted: deleted.length };
+    }
+
     function renameBook(id, alias) {
       var name = String(alias == null ? '' : alias).trim().slice(0, 80);
       if (!name) return { ok: false };
@@ -2071,6 +2130,7 @@
       openBook: openBook,
       closeBook: closeBook,
       deleteBook: deleteBook,
+      deleteBooks: deleteBooks,
       renameBook: renameBook,
       turn: turn,
       nextVisible: nextVisible,
@@ -2444,11 +2504,50 @@
       overflow: auto;
       padding: 12px 16px 16px;
     }
-    .sr-toolbar {
+    .sr-library-toolbar {
       display: flex;
       align-items: center;
       gap: 10px;
+      flex-wrap: wrap;
       margin-bottom: 10px;
+    }
+    .sr-batch-bar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin: 0 0 10px;
+      padding: 8px 10px;
+      border: 1px solid var(--dsw-alias-border-l1);
+      border-radius: 8px;
+      background: var(--dsw-alias-bg-layer-2);
+    }
+    .sr-batch-confirm {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin: 0 0 10px;
+      padding: 8px 10px;
+      border: 1px solid var(--dsw-alias-state-error-primary);
+      border-radius: 8px;
+      background: var(--dsw-alias-bg-layer-2);
+    }
+    .sr-book[data-selecting] {
+      grid-template-columns: auto minmax(0, 1fr);
+    }
+    .sr-book-check {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 24px;
+    }
+    .sr-book-check input {
+      width: 15px;
+      height: 15px;
+      margin: 0;
+      accent-color: var(--dsw-alias-brand-primary);
+      cursor: pointer;
     }
     .sr-primary-btn {
       display: inline-flex;
@@ -3199,6 +3298,9 @@
       var locale = props.locale;
       var book = props.book;
       var active = props.active;
+      var selecting = !!props.selecting;
+      var selected = !!props.selected;
+      var onToggle = props.onToggle;
       var t = useT(locale);
       var renameState = React.useState(false);
       var renaming = renameState[0];
@@ -3229,7 +3331,14 @@
         if (result.ok) setRenaming(false);
       }
 
-      return h('li', { className: 'sr-book', 'data-active': active ? '' : undefined },
+      return h('li', { className: 'sr-book', 'data-active': active ? '' : undefined, 'data-selecting': selecting ? '' : undefined },
+        selecting ? h('label', { className: 'sr-book-check' },
+          h('input', {
+            type: 'checkbox',
+            checked: selected,
+            'aria-label': t('library.batch') + ' ' + book.alias,
+            onChange: function () { if (onToggle) onToggle(book.id); },
+          })) : null,
         h('div', { className: 'sr-book-main' },
           h('div', { className: 'sr-book-title' },
             h('span', { title: book.alias }, book.alias),
@@ -3259,15 +3368,16 @@
             h('span', { className: 'sr-field-hint' }, t('library.deleteNote')),
             h('button', { type: 'button', className: 'sr-ghost-btn', 'data-danger': '', onClick: function () { void store.deleteBook(book.id); setConfirming(false); } }, t('library.confirm')),
             h('button', { type: 'button', className: 'sr-ghost-btn', onClick: function () { setConfirming(false); } }, t('library.cancel'))) : null),
-        h('div', { className: 'sr-book-actions' },
-          h('button', {
-            type: 'button',
-            className: 'sr-ghost-btn',
-            onClick: function () { void store.openBook(book.id); },
-          }, progress ? t('library.resume') : t('library.openBook')),
-          active ? h('button', { type: 'button', className: 'sr-ghost-btn', onClick: function () { store.closeBook(); } }, t('library.closeBook')) : null,
-          h('button', { type: 'button', className: 'sr-ghost-btn', onClick: startRename }, t('library.rename')),
-          h('button', { type: 'button', className: 'sr-ghost-btn', 'data-danger': '', onClick: function () { setConfirming(true); setRenaming(false); } }, t('library.delete'))));
+        selecting ? null : h('div', { className: 'sr-book-actions' },
+          h(Fragment, null,
+            h('button', {
+              type: 'button',
+              className: 'sr-ghost-btn',
+              onClick: function () { void store.openBook(book.id); },
+            }, progress ? t('library.resume') : t('library.openBook')),
+            active ? h('button', { type: 'button', className: 'sr-ghost-btn', onClick: function () { store.closeBook(); } }, t('library.closeBook')) : null,
+            h('button', { type: 'button', className: 'sr-ghost-btn', onClick: startRename }, t('library.rename')),
+            h('button', { type: 'button', className: 'sr-ghost-btn', 'data-danger': '', onClick: function () { setConfirming(true); setRenaming(false); } }, t('library.delete')))));
     }
 
     function LibraryPanel(props) {
@@ -3278,6 +3388,23 @@
       var t = useT(locale);
       var fileRef = React.useRef(null);
       var tab = state.libraryTab || 'books';
+      var selectingState = React.useState(false);
+      var selecting = selectingState[0];
+      var setSelecting = selectingState[1];
+      var selectedState = React.useState([]);
+      var selected = selectedState[0];
+      var setSelected = selectedState[1];
+      var batchConfirmState = React.useState(false);
+      var batchConfirm = batchConfirmState[0];
+      var setBatchConfirm = batchConfirmState[1];
+      var tabStyle = {
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        height: '28px',
+        boxSizing: 'border-box',
+        lineHeight: 1,
+      };
       // Read progress lazily from localStorage through the same key the store
       // writes; this keeps the row in sync after every page turn.
       var progressMap = readJson(LS_PROGRESS, {});
@@ -3290,6 +3417,47 @@
 
       function switchTab(next) {
         store.setLibraryTab(next);
+      }
+
+      function enterSelecting() {
+        setSelecting(true);
+        setSelected([]);
+        setBatchConfirm(false);
+      }
+
+      function exitSelecting() {
+        setSelecting(false);
+        setSelected([]);
+        setBatchConfirm(false);
+      }
+
+      function toggleSelected(id) {
+        setSelected(function (current) {
+          return current.indexOf(id) >= 0
+            ? current.filter(function (value) { return value !== id; })
+            : current.concat(id);
+        });
+        setBatchConfirm(false);
+      }
+
+      function toggleSelectAll() {
+        setSelected(function (current) {
+          return current.length === books.length ? [] : books.map(function (book) { return book.id; });
+        });
+        setBatchConfirm(false);
+      }
+
+      async function deleteSelected() {
+        var result = await store.deleteBooks(selected);
+        if (result.ok) exitSelecting();
+        else setBatchConfirm(false);
+      }
+
+      function onDropFiles(event) {
+        event.preventDefault();
+        if (state.importing) return;
+        var files = event.dataTransfer && event.dataTransfer.files;
+        if (files && files.length) void store.importFiles(files);
       }
 
       var books = state.books;
@@ -3390,12 +3558,12 @@
           h('span', { className: 'sr-field-hint' }, t('settings.shortcutHint'))),
         h('p', { className: 'sr-note-line' }, t('settings.localOnly') + ' ' + t('settings.resetHint')));
 
-      var booksView = h('div', null,
-        h('div', { className: 'sr-toolbar' },
+      var booksView = h('div', { onDragOver: function (event) { event.preventDefault(); }, onDrop: onDropFiles },
+        h('div', { className: 'sr-library-toolbar' },
           h('button', {
             type: 'button',
             className: 'sr-primary-btn',
-            disabled: !!importing,
+            disabled: !!importing || selecting,
             onClick: function () { if (fileRef.current) fileRef.current.click(); },
           }, h(BookIcon), t('library.import')),
           h('input', {
@@ -3406,7 +3574,36 @@
             style: { display: 'none' },
             onChange: chooseFiles,
           }),
+          h('button', {
+            type: 'button',
+            className: 'sr-ghost-btn',
+            style: { height: '30px' },
+            disabled: !!importing || books.length === 0,
+            onClick: selecting ? exitSelecting : enterSelecting,
+          }, selecting ? t('library.batchCancel') : t('library.batch')),
+          h('span', { className: 'sr-field-hint' }, t('library.importHint')),
           h('span', { className: 'sr-field-hint' }, t('library.copyNote'))),
+        selecting ? h('div', { className: 'sr-batch-bar' },
+          h('label', { className: 'sr-check' },
+            h('input', {
+              type: 'checkbox',
+              checked: books.length > 0 && selected.length === books.length,
+              onChange: toggleSelectAll,
+            }),
+            h('span', null, t('library.batchSelectAll'))),
+          h('span', { className: 'sr-field-hint' }, t('library.batchSelected', { count: selected.length })),
+          h('button', {
+            type: 'button',
+            className: 'sr-ghost-btn',
+            'data-danger': '',
+            disabled: selected.length === 0,
+            onClick: function () { setBatchConfirm(true); },
+          }, t('library.batchDelete')),
+          h('button', { type: 'button', className: 'sr-ghost-btn', onClick: exitSelecting }, t('library.batchCancel'))) : null,
+        batchConfirm && selected.length ? h('div', { className: 'sr-batch-confirm' },
+          h('span', { className: 'sr-field-hint' }, t('library.batchConfirmNote', { count: selected.length })),
+          h('button', { type: 'button', className: 'sr-ghost-btn', 'data-danger': '', onClick: function () { void deleteSelected(); } }, t('library.batchConfirm')),
+          h('button', { type: 'button', className: 'sr-ghost-btn', onClick: function () { setBatchConfirm(false); } }, t('library.cancel'))) : null,
         importing ? h('div', { className: 'sr-import-status' },
           h('span', null, t('library.importing', { name: importing.name, index: importing.index, total: importing.total })),
           h('div', { className: 'sr-progress' }, h('span', { style: { width: (importing.percent || 0) + '%' } }))) : null,
@@ -3423,6 +3620,9 @@
               book: book,
               active: !!(state.active && state.active.id === book.id),
               progress: progressMap[book.id],
+              selecting: selecting,
+              selected: selected.indexOf(book.id) >= 0,
+              onToggle: toggleSelected,
             });
           })),
         state.notice ? h('div', { className: 'sr-notice', 'data-tone': state.notice.tone || 'info', role: 'status' }, state.notice.text) : null);
@@ -3434,8 +3634,8 @@
             h('h2', null, t('section.title')),
             h('p', null, t('section.description')),
             h('div', { className: 'sr-tabs', style: { padding: '0 0 10px' } },
-              h('button', { type: 'button', className: 'sr-tab', 'data-active': tab === 'books' ? '' : undefined, onClick: function () { switchTab('books'); } }, t('library.tab.books')),
-              h('button', { type: 'button', className: 'sr-tab', 'data-active': tab === 'settings' ? '' : undefined, onClick: function () { switchTab('settings'); } }, t('library.tab.settings'))),
+              h('button', { type: 'button', className: 'sr-tab', style: tabStyle, 'data-active': tab === 'books' ? '' : undefined, onClick: function () { switchTab('books'); } }, t('library.tab.books')),
+              h('button', { type: 'button', className: 'sr-tab', style: tabStyle, 'data-active': tab === 'settings' ? '' : undefined, onClick: function () { switchTab('settings'); } }, t('library.tab.settings'))),
             tab === 'books' ? booksView : settings));
       }
 
@@ -3446,8 +3646,8 @@
           h('span', { className: 'sr-modal-sub' }, state.active ? t('reader.book', { alias: state.active.alias }) : t('section.description')),
           h('button', { type: 'button', className: 'sr-close-btn', 'aria-label': t('library.close'), title: t('library.close'), onClick: function () { store.closeLibrary(); } }, h(CloseIcon))),
         h('div', { className: 'sr-tabs' },
-          h('button', { type: 'button', className: 'sr-tab', 'data-active': tab === 'books' ? '' : undefined, onClick: function () { switchTab('books'); } }, t('library.tab.books')),
-          h('button', { type: 'button', className: 'sr-tab', 'data-active': tab === 'settings' ? '' : undefined, onClick: function () { switchTab('settings'); } }, t('library.tab.settings'))),
+          h('button', { type: 'button', className: 'sr-tab', style: tabStyle, 'data-active': tab === 'books' ? '' : undefined, onClick: function () { switchTab('books'); } }, t('library.tab.books')),
+          h('button', { type: 'button', className: 'sr-tab', style: tabStyle, 'data-active': tab === 'settings' ? '' : undefined, onClick: function () { switchTab('settings'); } }, t('library.tab.settings'))),
         h('div', { className: 'sr-modal-body' }, tab === 'books' ? booksView : settings));
     }
 

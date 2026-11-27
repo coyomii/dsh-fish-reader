@@ -4,6 +4,10 @@ DSH Fish Reader 是一个本地 TXT / EPUB 阅读器。它把小说正文放进 
 
 阅读内容只保存在本机，不会发送到当前对话，也不会调用模型。
 
+![DSH Fish Reader 阅读示例](images/reader-example.png)
+
+正文显示在输入框占位区，工具栏按钮位于“完全权限”旁边，右侧是进度和搜索。
+
 ## 能做什么
 
 - 导入本地 TXT / EPUB 小说；

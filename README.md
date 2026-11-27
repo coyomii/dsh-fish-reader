@@ -4,6 +4,10 @@
 
 插件完全运行在 DSH 的浏览器/桌面渲染端：书籍正文、书库元数据和进度保存在本机 IndexedDB 与 localStorage 中。打开、翻页、搜索都不会向当前对话发送消息，也不会调用 DeepSeek 模型。
 
+![DSH Fish Reader 阅读示例](docs/images/reader-example.png)
+
+正文显示在输入框占位区，工具栏按钮位于“完全权限”旁边，右侧是进度和搜索。
+
 > 显示名统一为 **DSH Fish Reader**。包名、slot id、IndexedDB/localStorage 键现在都改为 `dsh-fish-reader` / `fish-reader`。首次启动会把旧的 `dsh-shadow-reader` / `shadow-reader` 书库和进度自动迁移过来；旧标识只在迁移代码里保留。
 
 ## 获取

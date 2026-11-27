@@ -3455,7 +3455,7 @@
 
       function onDropFiles(event) {
         event.preventDefault();
-        if (state.importing) return;
+        if (state.importing || selecting) return;
         var files = event.dataTransfer && event.dataTransfer.files;
         if (files && files.length) void store.importFiles(files);
       }

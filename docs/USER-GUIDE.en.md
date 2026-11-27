@@ -34,7 +34,15 @@ The text appears in the composer placeholder, with the page controls beside **Fu
 - **Batch delete**: click **Select**, check several books, then click **Delete selected** and confirm in the dialog.
 - Single-book deletion uses the same confirmation dialog.
 - Deleting removes only the imported copies and reading progress; **original files are untouched**.
-- **Select all** selects every book in the library.
+- **Select all** selects every book in the current filter results.
+
+## Library search and sort
+
+Above the book list you can:
+
+- search by **title or original filename**;
+- sort by **recently read / import time / title**;
+- while searching, **Select all** only selects the matching books.
 
 ## Input mode and reading mode
 

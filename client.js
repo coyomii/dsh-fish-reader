@@ -939,6 +939,14 @@
     'library.tab.settings': 'Settings',
     'library.import': 'Batch import TXT / EPUB',
     'library.importHint': 'Select multiple files, or drop TXT/EPUB files here.',
+    'library.searchPlaceholder': 'Search title or filename',
+    'library.sortLabel': 'Sort library',
+    'library.sortRecent': 'Recently read',
+    'library.sortImported': 'Import time',
+    'library.sortName': 'Title',
+    'library.showing': 'Showing {shown} of {total}',
+    'library.noMatches': 'No matching books',
+    'library.noMatchesHint': 'Try a different title or filename.',
     'library.importing': 'Importing {name} ({index}/{total})',
     'library.empty': 'The library is empty. Import a TXT or EPUB file to start reading.',
     'library.emptyHint': 'The original file is never modified or moved.',
@@ -1050,6 +1058,14 @@
     'library.tab.settings': '设置',
     'library.import': '批量导入 TXT / EPUB',
     'library.importHint': '可一次选择多个文件，也可以把 TXT/EPUB 拖到这里。',
+    'library.searchPlaceholder': '搜索书名或文件名',
+    'library.sortLabel': '书库排序',
+    'library.sortRecent': '最近阅读',
+    'library.sortImported': '导入时间',
+    'library.sortName': '书名',
+    'library.showing': '显示 {shown} / {total}',
+    'library.noMatches': '没有匹配的书籍',
+    'library.noMatchesHint': '换个书名或文件名试试。',
     'library.importing': '正在导入 {name}（{index}/{total}）',
     'library.empty': '书库还是空的。导入一本 TXT 或 EPUB 开始阅读。',
     'library.emptyHint': '原始文件不会被修改或移动。',
@@ -2532,6 +2548,40 @@
       border-radius: 8px;
       background: var(--dsw-alias-bg-layer-2);
     }
+    .sr-library-filter {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin: 0 0 10px;
+    }
+    .sr-search-input {
+      box-sizing: border-box;
+      flex: 1 1 220px;
+      min-width: 0;
+      height: 30px;
+      padding: 0 9px;
+      border: 1px solid var(--dsw-alias-border-l1);
+      border-radius: 6px;
+      background: var(--dsw-alias-bg-layer-1);
+      color: var(--dsw-alias-label-primary);
+      font: inherit;
+      font-size: 12px;
+    }
+    .sr-search-input:focus { border-color: var(--dsw-alias-brand-primary); outline: none; }
+    .sr-select {
+      flex: none;
+      height: 30px;
+      padding: 0 8px;
+      border: 1px solid var(--dsw-alias-border-l1);
+      border-radius: 6px;
+      background: var(--dsw-alias-bg-layer-1);
+      color: var(--dsw-alias-label-secondary);
+      font: inherit;
+      font-size: 12px;
+      cursor: pointer;
+    }
+    .sr-select:focus { border-color: var(--dsw-alias-brand-primary); outline: none; }
     .sr-batch-confirm {
       display: flex;
       align-items: center;
@@ -3502,6 +3552,12 @@
       var confirmBusyState = React.useState(false);
       var confirmBusy = confirmBusyState[0];
       var setConfirmBusy = confirmBusyState[1];
+      var queryState = React.useState('');
+      var query = queryState[0];
+      var setQuery = queryState[1];
+      var sortState = React.useState('recent');
+      var sortMode = sortState[0];
+      var setSortMode = sortState[1];
       var tabStyle = {
         display: 'inline-flex',
         alignItems: 'center',
@@ -3522,6 +3578,12 @@
 
       function switchTab(next) {
         store.setLibraryTab(next);
+      }
+
+      function changeQuery(value) {
+        setQuery(value);
+        setSelected([]);
+        setConfirm(null);
       }
 
       function enterSelecting() {
@@ -3547,7 +3609,10 @@
 
       function toggleSelectAll() {
         setSelected(function (current) {
-          return current.length === books.length ? [] : books.map(function (book) { return book.id; });
+          var allVisibleSelected = visibleBooks.length > 0 && visibleBooks.every(function (book) {
+            return current.indexOf(book.id) >= 0;
+          });
+          return allVisibleSelected ? [] : visibleBooks.map(function (book) { return book.id; });
         });
         setConfirm(null);
       }
@@ -3588,6 +3653,26 @@
 
       var books = state.books;
       var importing = state.importing;
+      var normalizedQuery = query.trim().toLowerCase();
+      var filteredBooks = books.filter(function (book) {
+        if (!normalizedQuery) return true;
+        return String(book.alias || '').toLowerCase().indexOf(normalizedQuery) >= 0
+          || String(book.sourceName || '').toLowerCase().indexOf(normalizedQuery) >= 0;
+      });
+      var visibleBooks = filteredBooks.slice().sort(function (left, right) {
+        if (sortMode === 'name') {
+          return String(left.alias || '').localeCompare(String(right.alias || ''));
+        }
+        function timestamp(book) {
+          if (sortMode === 'recent') {
+            var progress = progressMap[book.id];
+            if (progress && Number.isFinite(Number(progress.updatedAt))) return Number(progress.updatedAt);
+          }
+          var imported = Date.parse(book.importedAt || '');
+          return Number.isFinite(imported) ? imported : 0;
+        }
+        return timestamp(right) - timestamp(left);
+      });
 
       React.useEffect(function () {
         if (!state.shortcutCapture) return undefined;
@@ -3709,11 +3794,32 @@
           }, selecting ? t('library.batchCancel') : t('library.batch')),
           h('span', { className: 'sr-field-hint' }, t('library.importHint')),
           h('span', { className: 'sr-field-hint' }, t('library.copyNote'))),
+        h('div', { className: 'sr-library-filter' },
+          h('input', {
+            type: 'search',
+            className: 'sr-search-input',
+            value: query,
+            placeholder: t('library.searchPlaceholder'),
+            'aria-label': t('library.searchPlaceholder'),
+            onChange: function (event) { changeQuery(event.target.value); },
+          }),
+          h('select', {
+            className: 'sr-select',
+            value: sortMode,
+            'aria-label': t('library.sortLabel'),
+            onChange: function (event) { setSortMode(event.target.value); },
+          },
+            h('option', { value: 'recent' }, t('library.sortRecent')),
+            h('option', { value: 'imported' }, t('library.sortImported')),
+            h('option', { value: 'name' }, t('library.sortName'))),
+          h('span', { className: 'sr-field-hint' }, t('library.showing', { shown: visibleBooks.length, total: books.length }))),
         selecting ? h('div', { className: 'sr-batch-bar' },
           h('label', { className: 'sr-check' },
             h('input', {
               type: 'checkbox',
-              checked: books.length > 0 && selected.length === books.length,
+              checked: visibleBooks.length > 0 && visibleBooks.every(function (book) {
+                return selected.indexOf(book.id) >= 0;
+              }),
               onChange: toggleSelectAll,
             }),
             h('span', null, t('library.batchSelectAll'))),
@@ -3734,7 +3840,11 @@
           ? h('div', { className: 'sr-empty-state' },
             h('strong', null, t('library.empty')),
             h('span', null, t('library.emptyHint')))
-          : h('ul', { className: 'sr-book-list' }, books.map(function (book) {
+          : visibleBooks.length === 0
+            ? h('div', { className: 'sr-empty-state' },
+              h('strong', null, t('library.noMatches')),
+              h('span', null, t('library.noMatchesHint')))
+            : h('ul', { className: 'sr-book-list' }, visibleBooks.map(function (book) {
             return h(BookRow, {
               key: book.id,
               store: store,
